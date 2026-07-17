@@ -140,7 +140,8 @@ The FlashKit MD hardware and the original client are by
 [github.com/krikzz/flashkit](https://github.com/krikzz/flashkit) under the
 MIT license. The original client source as distributed is also included
 unmodified in `flashkit-md-src.zip`, and `Device.cs`/`Cart.cs` in this
-repo are kept diffable against it.
+repo are kept diffable against it. This port is likewise MIT-licensed
+(see `LICENSE`), retaining krikzz's copyright notice.
 
 Thanks also to [joeyparrish/flashkit-md-py](https://github.com/joeyparrish/flashkit-md-py),
 an independent Python port of the same client.
