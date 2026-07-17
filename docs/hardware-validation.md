@@ -6,9 +6,9 @@ Compare against dumps produced by the original Windows client where possible.
 
 | # | Test | Linux | macOS | Windows |
 |---|------|-------|-------|---------|
-| 1 | `info` on a known cart — name/size/RAM match the original client | ✅ | ☐ | ☐ |
-| 2 | `read-rom` — MD5 identical to a dump from the original client | ✅* | ☐ | ☐ |
-| 3 | `read-ram` on a save cart, then `write-ram` round-trip | ✅ | ☐ | ☐ |
+| 1 | `info` on a known cart — name/size/RAM match the original client | ✅ | ✅ | ☐ |
+| 2 | `read-rom` — MD5 identical to a dump from the original client | ✅* | ✅* | ☐ |
+| 3 | `read-ram` on a save cart, then `write-ram` round-trip | ✅ | ✅ | ☐ |
 | 4 | `write-rom` to a FlashKit cart — verify passes, cart boots on console | ✅ | ☐ | ☐ |
 
 ## macOS validation runbook (for the agent running on the Mac)
@@ -59,6 +59,39 @@ anything on the Mac; divergences get investigated on the dev machine.
 ## Results
 
 Notes / discrepancies:
+
+- 2026-07-17, macOS 26.5.2 (Apple Silicon, arm64), programmer on
+  /dev/cu.usbserial-A10MQJP4, release binary v0.9.0 osx-arm64.
+- Release packaging bugs (not port bugs) blocked the binary from running
+  at all; both need fixing in the release workflow:
+  1. The binary is unsigned; macOS SIGKILLs unsigned arm64 executables
+     (exit 137). Workaround: `codesign -s - ./flashkit-md`. The publish
+     should ad-hoc sign osx binaries (or document the workaround).
+  2. The tarballs contain only `flashkit-md`, but single-file publish
+     leaves native libs beside the exe — `libSystem.IO.Ports.Native.dylib`
+     is missing, so every serial open fails with a dlopen error. Affects
+     all RIDs' archives, not just macOS (Linux validation below used the
+     locally built artifacts dir, which is why it passed). Workaround:
+     drop the dylib from the `runtime.osx-arm64.runtime.native.System.IO.Ports`
+     NuGet package next to the binary. Fix: tar the whole publish dir or
+     set `-p:IncludeNativeLibrariesForSelfExtract=true`.
+- Item 1: Shining Force 2 reported `SHINING FORCE 2 (U)` / 2048K / 8K,
+  matching Linux exactly. Blaster Master 2 (U) also detected sensibly
+  (1024K / 0B).
+- Item 2: SF2 dumped 2 MB in ~5 s,
+  MD5 64-73-B1-50-53-34-EF-56-20-D1-31-91-C1-82-51-FE — identical to the
+  Linux reference. (*) same caveat as Linux: not yet cross-checked against
+  an original-client dump.
+- Item 3: SF2 8K SRAM backed up, written back (built-in verify passed),
+  re-dumped — all three MD5s identical
+  (A4-B8-41-A4-2C-45-EC-BE-FC-F9-98-77-C8-98-4B-C8). Even bytes all 0xFF,
+  data on odd bytes, as expected for 8-bit RAM.
+- Item 4: not run on macOS (FlashKit cart not inserted; destructive).
+- Side note: Blaster Master 2 dumped twice byte-identically
+  (MD5 DD-38-02-1F-F9-CB-67-CF-C2-4A-1A-D7-44-7E-4E-3E), but its embedded
+  header checksum (0x2137) does not match the computed sum (0xA1F4). No
+  reference dump was available to distinguish a shipped-bad checksum from
+  a bad dump; the SF2 exact-match makes a dumper fault unlikely.
 
 - 2026-07-17, Arch Linux, programmer on /dev/ttyUSB0.
 - Item 1: Action 52 (W) detected as 4096K ROM / 0B RAM; Sonic 3 (U) detected
