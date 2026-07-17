@@ -36,7 +36,19 @@ jobs:
           done
           (cd artifacts/win-x64 && zip -q "$GITHUB_WORKSPACE/dist/flashkit-md-$GITHUB_REF_NAME-win-x64.zip" flashkit-md.exe)
           (cd dist && shasum -a 256 * > SHA256SUMS)
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v ver="$version" '
+            $0 ~ "^## "ver" " {found=1; next}
+            /^## / && found {exit}
+            found {print}
+          ' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "CHANGELOG.md has no section for $version — add one before tagging"
+            exit 1
+          fi
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file release-notes.md

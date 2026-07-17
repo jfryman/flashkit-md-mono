@@ -15,6 +15,17 @@ The .NET 8 SDK is user-installed at `~/.dotnet` and NOT on the default PATH.
 Both scripts handle that; for ad-hoc commands use
 `export PATH="$HOME/.dotnet:$PATH"`.
 
+## Changelog (permanent repo preference)
+
+CHANGELOG.md follows the mitchellh/HashiCorp style: one `## X.Y.Z
+(Month D, YYYY)` section per release with FEATURES / IMPROVEMENTS /
+BUG FIXES headings and `component:`-prefixed entries (cli, core, serial,
+release). Every user-visible change adds an entry under `## Unreleased`
+in the same commit as the change. To cut a release: rename Unreleased to
+the version + date, commit, then tag `vX.Y.Z` — the release workflow
+extracts that section for the GitHub release notes and fails the release
+if the section is missing.
+
 ## Architecture (library-first)
 
 - `src/FlashKit.Core/` — everything; front-ends only render.
