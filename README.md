@@ -63,6 +63,19 @@ source (no quarantine), or clear the flag:
 xattr -d com.apple.quarantine ./flashkit-md
 ```
 
+## Notes on flash carts
+
+`write-rom` erases only as much flash as the image needs (matching the
+original client). If the cart previously held a larger ROM, the leftover
+data above the new image stays on the chip — and a game with save support
+may read it through the save-RAM window at `0x200000` and show "corrupted"
+ghost save slots on console. If that happens, flash a full-chip-size image
+or erase the remainder of the chip.
+
+Also note the FlashKit cart plays saves-capable games but cannot persist
+saves unless its board actually has SRAM populated; `info` reporting
+`RAM size : 0B` on the flash cart tells you saving won't work.
+
 ## Development
 
 ```

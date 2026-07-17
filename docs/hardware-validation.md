@@ -24,4 +24,17 @@ Notes / discrepancies:
   (A8-D0-A3-45-52-A8-DF-FA-CC-FC-1F-4B-A1-F8-EB-3C).
 - Item 4: Action 52 dump (4 MB) flashed back to the FlashKit cart in ~72 s;
   built-in verify passed and an independent re-dump matched the source MD5
-  exactly. (*) console boot test still pending.
+  exactly. Shining Force 2 (2 MB) then flashed over it in ~36 s, verified,
+  and re-dumped byte-identical to the donor cart dump. (*) console boot
+  test: game boots and runs; see ghost-save note below.
+- FlashKit cart finding #1: this cart has no save RAM. The probe (which
+  correctly finds Sonic 3's 512B FRAM and SF2's 8K SRAM) reports nothing
+  writable at 0x200000 under any bank-register value (0x0001/0x0003/0xFFFF,
+  word at 0xA13000 and byte at 0xA130F1). Games play but cannot save.
+- FlashKit cart finding #2 — "ghost saves": write-rom (like the original
+  client) erases only as much flash as the image needs. Flashing 2 MB SF2
+  over 4 MB Action 52 left stale Action 52 data at 0x200000+, which SF2
+  reads as its save area on console and renders as corrupted save slots.
+  Confirmed by matching the stale bytes against the Action 52 dump at
+  0x200000. Fixed manually by erasing 0x200000-0x400000; the cart then
+  dumps byte-identical to the donor cart and reports 2048K again.
