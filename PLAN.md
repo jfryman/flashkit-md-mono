@@ -1,5 +1,12 @@
 # Goal: Cross-platform port of FlashKit MD (Linux + macOS + Windows)
 
+> **Status (2026-07-17):** Stages 0-4 complete; v0.9.0 released with
+> binaries for all five targets. Stage 5: Linux column fully validated on
+> real hardware; macOS validation is next — see the runbook in
+> docs/hardware-validation.md. Extras beyond the original plan:
+> write-rom --full-erase, bake-save, and a library-first refactor
+> (FlashKitSession) enabling future TUI/GUI front-ends (Stage 6).
+
 Port krikzz's FlashKit MD programmer client (C# WinForms, .NET Framework 4.0)
 to a cross-platform .NET 8 CLI that runs on Linux, macOS (Intel + Apple
 Silicon), and Windows, preserving the original's serial protocol behavior.

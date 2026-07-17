@@ -11,6 +11,53 @@ Compare against dumps produced by the original Windows client where possible.
 | 3 | `read-ram` on a save cart, then `write-ram` round-trip | ✅ | ☐ | ☐ |
 | 4 | `write-rom` to a FlashKit cart — verify passes, cart boots on console | ✅ | ☐ | ☐ |
 
+## macOS validation runbook (for the agent running on the Mac)
+
+Goal: fill the macOS column above. Items 1-2 are required; 3-4 are a bonus
+if the right carts are inserted. Linux results below are the reference.
+
+Setup:
+
+1. Download the release binary (pick `osx-arm64` for Apple Silicon,
+   `osx-x64` for Intel):
+   `https://github.com/jfryman/flashkit-md-mono/releases/tag/v0.9.0`
+2. `tar xzf flashkit-md-v0.9.0-osx-<arch>.tar.gz` (tar preserves the
+   executable bit). If Gatekeeper blocks it:
+   `xattr -d com.apple.quarantine ./flashkit-md`
+3. Plug in the programmer. It appears as `/dev/cu.usbmodem*` or
+   `/dev/cu.usbserial*`; no group membership or drivers are needed on
+   macOS. Auto-detection scans those patterns; `--port <path>` pins one.
+
+Validation steps (use the REAL game carts, not the FlashKit flash cart —
+see the warning below):
+
+1. `./flashkit-md info` with a known cart. Expected, matching Linux:
+   - Action 52: `ACTION 52 (W)`, `ROM size : 4096K`, `RAM size : 0B`
+   - Shining Force 2: `SHINING FORCE 2 (U)`, `ROM size : 2048K`,
+     `RAM size : 8K`
+2. `./flashkit-md read-rom check.bin` on the same cart. The MD5 must match
+   the Linux reference exactly:
+   - Action 52: `C4-C1-91-D4-F8-A9-F0-04-50-26-39-E5-CC-B9-54-80`
+   - Shining Force 2: `64-73-B1-50-53-34-EF-56-20-D1-31-91-C1-82-51-FE`
+3. (bonus) On the SF2 cart: `read-ram backup.srm`, then
+   `write-ram backup.srm` (writes its own backup — non-destructive), then
+   `read-ram again.srm` and compare MD5s; all three must match.
+4. (bonus) `write-rom` a previously dumped image to the FlashKit flash
+   cart and confirm the built-in verify passes. Destructive to the flash
+   cart's contents — skip unless the user confirms.
+
+Warning: the FlashKit flash cart currently holds SF2 plus a save snapshot
+baked at 0x200000. Mirror-based size probing can report odd ROM sizes on
+it (partially programmed flash has no mirrors), so use the real game carts
+for the info/read-rom comparisons.
+
+When done: fill in the macOS column of the table above, add a dated note
+with the macOS version, arch, and port device name, and commit. If any
+result diverges from Linux, record the exact output — do not "fix"
+anything on the Mac; divergences get investigated on the dev machine.
+
+## Results
+
 Notes / discrepancies:
 
 - 2026-07-17, Arch Linux, programmer on /dev/ttyUSB0.
