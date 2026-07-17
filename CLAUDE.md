@@ -20,8 +20,9 @@ Both scripts handle that; for ad-hoc commands use
 - `src/FlashKit.Core/` — everything; front-ends only render.
   - `Device.cs` / `Cart.cs`: serial protocol + cart logic, ported VERBATIM
     from the original client (lowercase method names and all). Keep them
-    diffable against `src-extracted/flashkit-md/`; behavior changes belong
-    in separate commits with tests, or in FlashKitSession.
+    diffable against the original source in `flashkit-md-src.zip` (unzip
+    to compare); behavior changes belong in separate commits with tests,
+    or in FlashKitSession.
   - `DeviceConnector` / `PortDiscovery`: per-OS port scanning with
     surfaced errors (Linux: ttyACM*/ttyUSB*; macOS: cu.usbmodem*/
     cu.usbserial*, never tty.* which block on open; Windows: COM*).
@@ -32,8 +33,9 @@ Both scripts handle that; for ad-hoc commands use
 - `src/flashkit-md/` — CLI: arg parsing, file I/O, rendering. Reference
   implementation for future TUI/GUI front-ends, which should also build on
   FlashKitSession.
-- `src-extracted/` — pristine original Windows source (WinForms, .NET 4).
-  Never modify.
+- `flashkit-md-src.zip` — pristine original Windows source (WinForms,
+  .NET 4) as distributed by krikzz. Never modify; unzip elsewhere when a
+  diff against the original is needed.
 
 ## Testing rules
 

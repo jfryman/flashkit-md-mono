@@ -5,7 +5,7 @@ Cross-platform (Linux / macOS / Windows) command-line client for
 — dump and flash Sega Mega Drive / Genesis cartridges.
 
 This is a port of the original Windows-only C# WinForms client (v1.0.0.0,
-preserved under `src-extracted/`) to .NET 8. The serial protocol and
+preserved in `flashkit-md-src.zip`) to .NET 8. The serial protocol and
 cartridge logic are ported verbatim from the original; the GUI is replaced
 by a CLI. See `PLAN.md` for the porting approach and current status.
 
@@ -113,5 +113,5 @@ Layout:
 ## Credits
 
 The FlashKit MD hardware and the original client are by
-[krikzz](https://krikzz.com/). Original source is included unmodified under
-`src-extracted/`.
+[krikzz](https://krikzz.com/). Original source is included unmodified in
+`flashkit-md-src.zip`.
