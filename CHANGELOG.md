@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+FEATURES:
+
+ * cli: `--version` prints the version stamped into the build.
+
+IMPROVEMENTS:
+
+ * release: binaries, the GUI window title, and the .app bundle are now
+   stamped with the version being built — the bare tag on releases,
+   `git describe` output (`tag-N-gSHA[-dirty]`) on branch and local
+   builds, `dev` when built outside publish.sh.
+ * gui: the macOS menu bar and Dock now say "FlashKit MD" instead of
+   Avalonia's default "Avalonia Application".
+
 ## 1.3.0 (July 17, 2026)
 
 FEATURES:

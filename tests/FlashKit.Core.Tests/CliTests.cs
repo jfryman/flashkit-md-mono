@@ -39,6 +39,15 @@ public class CliTests : IDisposable
     }
 
     [Fact]
+    public void version_prints_client_version_without_touching_a_device()
+    {
+        int exit = AppWithoutDevice().Run(new[] { "--version" });
+
+        Assert.Equal(0, exit);
+        Assert.Equal("flashkit-md " + VersionInfo.ClientVersion + Environment.NewLine, stdout.ToString());
+    }
+
+    [Fact]
     public void info_prints_cart_details()
     {
         var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000), sramBytes: 8192);

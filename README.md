@@ -32,6 +32,9 @@ flashkit-md [--port <serial-port>] <command> [file]
                      erasing (also applies to bake-save)
   read-ram [file]    dump save RAM (default file: <ROM name>.srm)
   write-ram <file>   write save RAM from file
+
+flashkit-md --version   print the build's version (release tag, or
+                        tag-N-gSHA for branch/local builds)
 ```
 
 The programmer is auto-detected by probing likely USB serial ports

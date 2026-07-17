@@ -4,6 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Overridden by publish.sh with git describe output; see VersionInfo.
+         The SDK would append +<commit> on its own — redundant, since git
+         describe already encodes tag distance and sha. -->
+    <InformationalVersion>dev</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

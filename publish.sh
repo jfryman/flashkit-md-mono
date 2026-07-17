@@ -12,7 +12,12 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 RIDS=(${RIDS:-linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64})
 
 PROJECTS=(src/flashkit-md src/FlashKit.Gui)
-APP_VERSION="${APP_VERSION:-0.0.0}"
+
+# Version stamped into the binaries (--version, GUI title, Info.plist).
+# Local/branch builds get git describe (tag, or tag-N-gSHA[-dirty] off a
+# tag); the release workflow overrides with the bare tag.
+VERSION="${VERSION:-$(git describe --tags --always --dirty | sed 's/^v//')}"
+echo "version: $VERSION"
 
 for rid in "${RIDS[@]}"; do
   for proj in "${PROJECTS[@]}"; do
@@ -37,6 +42,7 @@ for rid in "${RIDS[@]}"; do
       -p:PublishSingleFile=true \
       -p:EnableCompressionInSingleFile=true \
       -p:IncludeNativeLibrariesForSelfExtract=true \
+      -p:InformationalVersion="$VERSION" \
       $extra \
       -o "artifacts/$rid"
   done
@@ -50,7 +56,7 @@ for rid in "${RIDS[@]}"; do
     exit 1
   fi
   case "$rid" in osx-*)
-    packaging/macos/make-app.sh "$rid" "$APP_VERSION" ;;
+    packaging/macos/make-app.sh "$rid" "$VERSION" ;;
   esac
 done
 

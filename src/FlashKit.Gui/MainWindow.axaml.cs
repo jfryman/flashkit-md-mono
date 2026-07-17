@@ -31,7 +31,7 @@ public partial class MainWindow : Window
     {
         this.connector = connector;
         InitializeComponent();
-        Title += " " + (typeof(FlashKitSession).Assembly.GetName().Version?.ToString(3) ?? "");
+        Title += " " + VersionInfo.ClientVersion;
         PickSavePath = DefaultPickSavePath;
         PickOpenPath = DefaultPickOpenPath;
     }

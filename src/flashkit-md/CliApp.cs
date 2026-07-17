@@ -13,6 +13,7 @@ public sealed class CliApp
     const string Usage = """
         FlashKit MD — Sega Mega Drive / Genesis cart programmer client
         usage: flashkit-md [--port <serial-port>] <command> [file]
+               flashkit-md --version
         commands:
           info               print cart ROM name/size and save-RAM size
           read-rom [file]    dump cart ROM (default file: <ROM name>.bin)
@@ -56,6 +57,11 @@ public sealed class CliApp
 
         for (int i = 0; i < args.Length; i++)
         {
+            if (args[i] == "--version")
+            {
+                con.WriteLine("flashkit-md " + VersionInfo.ClientVersion);
+                return 0;
+            }
             if (args[i] == "--port")
             {
                 if (i + 1 >= args.Length)
