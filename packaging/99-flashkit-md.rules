@@ -1,0 +1,14 @@
+# udev rule granting non-root access to the FlashKit MD programmer.
+#
+# Find your programmer's USB vendor/product IDs with `lsusb` while it is
+# plugged in (it enumerates as a USB serial adapter), then fill them in
+# below and install:
+#
+#   sudo cp 99-flashkit-md.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# Alternatively, skip udev rules entirely and add your user to the serial
+# group: `sudo usermod -aG dialout $USER` (Debian/Ubuntu/Fedora) or
+# `sudo usermod -aG uucp $USER` (Arch), then log out and back in.
+
+SUBSYSTEM=="tty", ATTRS{idVendor}=="XXXX", ATTRS{idProduct}=="YYYY", MODE="0666", TAG+="uaccess"

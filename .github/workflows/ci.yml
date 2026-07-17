@@ -23,3 +23,21 @@ jobs:
         run: dotnet build flashkit-md.sln --no-restore -c Release -warnaserror
       - name: Test
         run: dotnet test flashkit-md.sln --no-build -c Release
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rid: [linux-x64, linux-arm64, osx-x64, osx-arm64, win-x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish ${{ matrix.rid }}
+        run: RIDS=${{ matrix.rid }} ./publish.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flashkit-md-${{ matrix.rid }}
+          path: artifacts/${{ matrix.rid }}/
