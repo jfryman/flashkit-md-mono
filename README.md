@@ -9,6 +9,13 @@ preserved in `flashkit-md-src.zip`) to .NET 8. The serial protocol and
 cartridge logic are ported verbatim from the original; the GUI is replaced
 by a CLI. See `PLAN.md` for the porting approach and current status.
 
+> **All credit for the hardware and the original client goes to
+> [krikzz](https://krikzz.com/)** — this project is only a port and would
+> not exist without that work. Original C# client and hardware sources:
+> [github.com/krikzz/flashkit](https://github.com/krikzz/flashkit) (MIT).
+> Buy the programmer from
+> [krikzz.com](https://krikzz.com/our-products/accessories/flashkitmd.html).
+
 ## Usage
 
 ```
@@ -129,5 +136,11 @@ Layout:
 ## Credits
 
 The FlashKit MD hardware and the original client are by
-[krikzz](https://krikzz.com/). Original source is included unmodified in
-`flashkit-md-src.zip`.
+[krikzz](https://krikzz.com/) and published at
+[github.com/krikzz/flashkit](https://github.com/krikzz/flashkit) under the
+MIT license. The original client source as distributed is also included
+unmodified in `flashkit-md-src.zip`, and `Device.cs`/`Cart.cs` in this
+repo are kept diffable against it.
+
+Thanks also to [joeyparrish/flashkit-md-py](https://github.com/joeyparrish/flashkit-md-py),
+an independent Python port of the same client.
