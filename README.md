@@ -30,7 +30,9 @@ output; `write-rom` and `write-ram` verify by reading back.
 
 ## Install
 
-Build from source (needs the .NET 8 SDK):
+Grab a binary from the GitHub Releases page (published automatically for
+each `v*` tag: `.tar.gz` for Linux/macOS, `.zip` for Windows, with a
+`SHA256SUMS` file), or build from source (needs the .NET 8 SDK):
 
 ```
 dotnet publish src/flashkit-md -c Release -r linux-x64 --self-contained \

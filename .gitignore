@@ -5,3 +5,4 @@ artifacts/
 .vs/
 .idea/
 dumps/
+dist/

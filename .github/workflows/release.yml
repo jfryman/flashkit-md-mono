@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Test
+        run: ./ci.sh
+      - name: Publish all targets
+        run: ./publish.sh
+      - name: Package
+        run: |
+          mkdir -p dist
+          for rid in linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            tar -C "artifacts/$rid" -czf "dist/flashkit-md-$GITHUB_REF_NAME-$rid.tar.gz" flashkit-md
+          done
+          (cd artifacts/win-x64 && zip -q "$GITHUB_WORKSPACE/dist/flashkit-md-$GITHUB_REF_NAME-win-x64.zip" flashkit-md.exe)
+          (cd dist && sha256sum * > SHA256SUMS)
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
