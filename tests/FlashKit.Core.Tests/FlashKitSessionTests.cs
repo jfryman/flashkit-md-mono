@@ -22,6 +22,26 @@ public class FlashKitSessionTests
         Assert.Equal(0x80000, info.RomBytes);
         Assert.Equal(8192, info.RamBytes);
         Assert.Equal(0x80000, info.HeaderRomBytes);
+        Assert.True(info.CartDetected);
+    }
+
+    [Fact]
+    public void GetInfo_flags_missing_cartridge()
+    {
+        // An empty slot floats the bus: every read is 0xFFFF, giving the
+        // "Unknown (X) / 0K" signature (docs/hardware-validation.md). The
+        // programmer itself still answers, so this is cart-absent, not
+        // device-absent.
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000), sramBytes: 8192) { CartInserted = false };
+        using var session = Connect(fake);
+
+        var info = session.GetInfo();
+
+        Assert.False(info.CartDetected);
+        Assert.StartsWith("Unknown", info.RomName);
+        Assert.Equal(0, info.RomBytes);
+        Assert.Equal(0, info.RamBytes);
+        Assert.Null(info.HeaderRomBytes);
     }
 
     [Fact]

@@ -1,23 +1,34 @@
+using System.Collections.ObjectModel;
 using System.Security.Cryptography;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using FlashKit.Core;
 
 namespace FlashKit.Gui;
 
 /// <summary>
-/// Port of the original client's Form1: same controls, same console
-/// messages, same per-click connect/disconnect. Cart operations run on a
-/// worker thread (the WinForms original blocked the UI thread and pumped
-/// with this.Update()); buttons are disabled while one is in flight.
+/// Main window: a status bar tracking programmer + cartridge presence, a
+/// structured cart-info panel, and a per-operation transaction log with
+/// inline progress bars. Cart state auto-refreshes via a 2 s poll in
+/// production (tests use the connector ctor, which starts no timer, and
+/// drive <see cref="RefreshAsync"/> directly — no timing in CI). The serial
+/// port is exclusive, so the poller and operations serialize on
+/// <see cref="deviceGate"/>; operations run on a worker thread.
 /// </summary>
 public partial class MainWindow : Window
 {
     static readonly FilePickerFileType RomFiles = new("ROM image") { Patterns = new[] { "*.bin" } };
     static readonly FilePickerFileType SaveFiles = new("Save RAM") { Patterns = new[] { "*.srm" } };
+    static readonly IBrush PresentBrush = Brush.Parse("#3FB950");
+    static readonly IBrush AbsentBrush = Brush.Parse("#8B949E");
 
     readonly DeviceConnector? connector;
+    readonly SemaphoreSlim deviceGate = new(1, 1);
+
+    internal ObservableCollection<TransactionEntry> Log { get; } = new();
 
     // Test seams: headless tests inject a fake-device connector and replace
     // the pickers (the headless platform's StorageProvider never returns a
@@ -25,13 +36,20 @@ public partial class MainWindow : Window
     internal Func<string, FilePickerFileType, Task<string?>> PickSavePath;
     internal Func<FilePickerFileType, Task<string?>> PickOpenPath;
 
-    public MainWindow() : this(null) { }
+    public MainWindow() : this(null)
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        timer.Tick += (_, _) => _ = RefreshAsync();
+        Opened += (_, _) => { _ = RefreshAsync(); timer.Start(); };
+        Closed += (_, _) => timer.Stop();
+    }
 
     internal MainWindow(DeviceConnector? connector)
     {
         this.connector = connector;
         InitializeComponent();
         Title += " " + VersionInfo.ClientVersion;
+        LogList.ItemsSource = Log;
         PickSavePath = DefaultPickSavePath;
         PickOpenPath = DefaultPickOpenPath;
     }
@@ -55,110 +73,157 @@ public partial class MainWindow : Window
         return files.Count == 1 ? files[0].TryGetLocalPath() : null;
     }
 
-    void ConsWriteLine(string str)
-    {
-        ConsoleBox.Text += str + Environment.NewLine;
-        ConsoleBox.CaretIndex = ConsoleBox.Text?.Length ?? 0;
-    }
-
-    void Separator() => ConsWriteLine("-----------------------------------------------------");
-
-    void PrintMD5(byte[] buff) => ConsWriteLine("MD5: " + BitConverter.ToString(MD5.HashData(buff)));
-
-    void SetBusy(bool busy)
-    {
-        foreach (var btn in new[] { BtnReadRom, BtnWriteRom, BtnReadRam, BtnWriteRam, BtnCartInfo })
-            btn.IsEnabled = !busy;
-    }
-
-    /// <summary>Connects, runs <paramref name="body"/>, logs any failure to
-    /// the console, and always disconnects — the original's per-click
-    /// try/catch/disconnect shape. Connect and Dispose run off the UI thread;
-    /// Dispose can stall in the guarded serial close.</summary>
-    async Task WithSession(Func<FlashKitSession, Task> body)
-    {
-        SetBusy(true);
-        FlashKitSession? session = null;
-        try
-        {
-            session = await Task.Run(() => FlashKitSession.Connect(connector));
-            await body(session);
-        }
-        catch (Exception x)
-        {
-            ConsWriteLine(x.Message);
-        }
-        finally
-        {
-            if (session != null) await Task.Run(session.Dispose);
-            SetBusy(false);
-        }
-    }
-
-    /// <summary>Progress sink that drives the bar and logs a line when the
-    /// operation enters a new phase. Constructed on the UI thread so reports
-    /// from the worker marshal back automatically.</summary>
-    IProgress<OperationProgress> TrackProgress(Func<OperationPhase, string?>? phaseLabel = null)
-    {
-        OperationPhase? current = null;
-        Progress.Value = 0;
-        return new Progress<OperationProgress>(p =>
-        {
-            if (current != p.Phase)
-            {
-                current = p.Phase;
-                if (phaseLabel?.Invoke(p.Phase) is string label) ConsWriteLine(label);
-            }
-            Progress.Maximum = Math.Max(1, p.Total);
-            Progress.Value = p.Done;
-        });
-    }
-
-    void OnCartInfo(object? sender, RoutedEventArgs e) => _ = CartInfoAsync();
+    void OnRefresh(object? sender, RoutedEventArgs e) => _ = RefreshAsync();
     void OnReadRom(object? sender, RoutedEventArgs e) => _ = ReadRomAsync();
     void OnWriteRom(object? sender, RoutedEventArgs e) => _ = WriteRomAsync();
     void OnReadRam(object? sender, RoutedEventArgs e) => _ = ReadRamAsync();
     void OnWriteRam(object? sender, RoutedEventArgs e) => _ = WriteRamAsync();
 
-    internal Task CartInfoAsync()
+    /// <summary>One poll: connect, read cart info, disconnect, update the
+    /// status bar and info panel. Skips silently when an operation (or a
+    /// previous poll) holds the device.</summary>
+    internal async Task RefreshAsync()
     {
-        Separator();
-        return WithSession(async session =>
+        if (!await deviceGate.WaitAsync(0)) return;
+        try
         {
-            var info = await Task.Run(session.GetInfo);
-            ConsWriteLine("Connected to: " + session.PortName);
-            ConsWriteLine("ROM name : " + info.RomName);
-            ConsWriteLine("ROM size : " + info.RomBytes / 1024 + "K");
-            ConsWriteLine(info.RamBytes < 1024
-                ? "RAM size : " + info.RamBytes + "B"
-                : "RAM size : " + info.RamBytes / 1024 + "K");
-            if (info.HeaderRomBytes is int hdr && hdr != info.RomBytes)
-                ConsWriteLine("Header ROM size : " + hdr / 1024 + "K");
+            var (port, info) = await Task.Run(() =>
+            {
+                using var session = FlashKitSession.Connect(connector);
+                return (session.PortName, session.GetInfo());
+            });
+            ShowDeviceState(port);
+            ShowCartState(info);
+        }
+        catch (DeviceNotFoundException)
+        {
+            ShowDeviceState(null);
+            ShowCartState(null);
+        }
+        catch (Exception)
+        {
+            // Transient failure mid-poll (e.g. cable pulled between the
+            // handshake and the info read): keep the last device state but
+            // stop claiming to know what cart is in.
+            ShowCartState(null);
+        }
+        finally
+        {
+            deviceGate.Release();
+        }
+    }
+
+    void ShowDeviceState(string? port)
+    {
+        DeviceDot.Fill = port != null ? PresentBrush : AbsentBrush;
+        DeviceStatusText.Text = port != null
+            ? "Programmer connected on " + port
+            : "No programmer detected";
+    }
+
+    void ShowCartState(CartInfo? info)
+    {
+        bool present = info?.CartDetected == true;
+        CartDot.Fill = present ? PresentBrush : AbsentBrush;
+        CartStatusText.Text = present ? DisplayName(info!.RomName)
+            : info != null ? "No cartridge" : "—";
+        InfoName.Text = present ? DisplayName(info!.RomName) : "—";
+        InfoRomSize.Text = present ? FormatKb(info!.RomBytes) : "—";
+        InfoRamSize.Text = present ? FormatSize(info!.RamBytes) : "—";
+        InfoHeaderSize.Text = present && info!.HeaderRomBytes is int hdr ? FormatKb(hdr) : "—";
+    }
+
+    // Header names are space-padded ("SONIC THE          HEDGEHOG 3");
+    // collapse the runs for display, like GetRomName does for filenames.
+    static string DisplayName(string romName) =>
+        string.Join(' ', romName.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+    static string FormatKb(int bytes) => bytes / 1024 + "K";
+    static string FormatSize(int bytes) => bytes < 1024 ? bytes + "B" : bytes / 1024 + "K";
+    static string Md5(byte[] buff) => BitConverter.ToString(MD5.HashData(buff));
+
+    void SetBusy(bool busy)
+    {
+        foreach (var btn in new[] { BtnReadRom, BtnWriteRom, BtnReadRam, BtnWriteRam, BtnRefresh })
+            btn.IsEnabled = !busy;
+    }
+
+    /// <summary>Runs one cart operation as a transaction-log entry: connect,
+    /// run <paramref name="body"/>, report any failure on the entry, always
+    /// disconnect — the original's per-click try/catch/disconnect shape.
+    /// Waits out an in-flight poll before touching the port; Connect and
+    /// Dispose run off the UI thread (Dispose can stall in the guarded
+    /// serial close).</summary>
+    async Task RunOperation(string title, Func<FlashKitSession, TransactionEntry, Task> body)
+    {
+        var entry = new TransactionEntry(title);
+        Log.Insert(0, entry);
+        SetBusy(true);
+        await deviceGate.WaitAsync();
+        FlashKitSession? session = null;
+        try
+        {
+            entry.Status = "Connecting...";
+            session = await Task.Run(() => FlashKitSession.Connect(connector));
+            await body(session, entry);
+        }
+        catch (Exception x)
+        {
+            entry.Fail(x.Message);
+        }
+        finally
+        {
+            if (session != null) await Task.Run(session.Dispose);
+            deviceGate.Release();
+            SetBusy(false);
+        }
+    }
+
+    /// <summary>Progress sink that drives the entry's progress bar and sets
+    /// its status when the operation enters a new phase. Constructed on the
+    /// UI thread so reports from the worker marshal back automatically.</summary>
+    static IProgress<OperationProgress> TrackProgress(TransactionEntry entry,
+        Func<OperationPhase, string?>? phaseLabel = null)
+    {
+        OperationPhase? current = null;
+        return new Progress<OperationProgress>(p =>
+        {
+            if (current != p.Phase)
+            {
+                current = p.Phase;
+                if (phaseLabel?.Invoke(p.Phase) is string label) entry.Status = label;
+            }
+            entry.ProgressMax = Math.Max(1, p.Total);
+            entry.ProgressValue = p.Done;
         });
     }
 
-    internal Task ReadRomAsync() => WithSession(async session =>
+    internal Task ReadRomAsync() => RunOperation("Read ROM", async (session, entry) =>
     {
         var romName = await Task.Run(session.GetRomName);
-        if (await PickSavePath(romName + ".bin", RomFiles) is not string path) return;
-
-        Separator();
-        ConsWriteLine("Read ROM to " + path);
-        var progress = TrackProgress();
+        if (await PickSavePath(romName + ".bin", RomFiles) is not string path)
+        {
+            entry.Cancel();
+            return;
+        }
+        entry.Detail = path;
+        entry.Status = "Reading ROM...";
+        var progress = TrackProgress(entry);
         var rom = await Task.Run(() => session.ReadRom(p => progress.Report(p)));
-        ConsWriteLine("ROM size : " + rom.Length / 1024 + "K");
         await File.WriteAllBytesAsync(path, rom);
-        PrintMD5(rom);
-        ConsWriteLine("OK");
+        entry.Succeed($"OK — {rom.Length / 1024}K, MD5 {Md5(rom)}");
     });
 
-    internal Task WriteRomAsync() => WithSession(async session =>
+    internal Task WriteRomAsync() => RunOperation("Write ROM", async (session, entry) =>
     {
-        if (await PickOpenPath(RomFiles) is not string path) return;
-
-        Separator();
+        if (await PickOpenPath(RomFiles) is not string path)
+        {
+            entry.Cancel();
+            return;
+        }
+        entry.Detail = path;
         var rom = await File.ReadAllBytesAsync(path);
-        var progress = TrackProgress(phase => phase switch
+        var progress = TrackProgress(entry, phase => phase switch
         {
             OperationPhase.Erase => "Flash erase...",
             OperationPhase.Write => "Flash write...",
@@ -166,40 +231,40 @@ public partial class MainWindow : Window
             _ => null,
         });
         await Task.Run(() => session.WriteRom(rom, progress: p => progress.Report(p)));
-        ConsWriteLine("OK");
+        entry.Succeed($"OK — {rom.Length / 1024}K written, MD5 {Md5(rom)}");
     });
 
-    internal Task ReadRamAsync() => WithSession(async session =>
+    internal Task ReadRamAsync() => RunOperation("Read RAM", async (session, entry) =>
     {
         var romName = await Task.Run(session.GetRomName);
-        if (await PickSavePath(romName + ".srm", SaveFiles) is not string path) return;
-
-        Separator();
+        if (await PickSavePath(romName + ".srm", SaveFiles) is not string path)
+        {
+            entry.Cancel();
+            return;
+        }
+        entry.Detail = path;
+        entry.Status = "Reading RAM...";
         var ram = await Task.Run(session.ReadRam);
-        ConsWriteLine("Read RAM to " + path);
-        ConsWriteLine(ram.Length / 2 < 1024
-            ? "RAM size : " + ram.Length / 2 + "B"
-            : "RAM size : " + ram.Length / 2 / 1024 + "K");
         await File.WriteAllBytesAsync(path, ram);
-        PrintMD5(ram);
-        ConsWriteLine("OK");
+        entry.Succeed($"OK — {FormatSize(ram.Length / 2)}, MD5 {Md5(ram)}");
     });
 
-    internal Task WriteRamAsync() => WithSession(async session =>
+    internal Task WriteRamAsync() => RunOperation("Write RAM", async (session, entry) =>
     {
-        if (await PickOpenPath(SaveFiles) is not string path) return;
-
-        Separator();
+        if (await PickOpenPath(SaveFiles) is not string path)
+        {
+            entry.Cancel();
+            return;
+        }
+        entry.Detail = path;
         var ram = await File.ReadAllBytesAsync(path);
-        var progress = TrackProgress(phase => phase switch
+        var progress = TrackProgress(entry, phase => phase switch
         {
             OperationPhase.Write => "Write RAM...",
             OperationPhase.Verify => "Verify...",
             _ => null,
         });
         int words = await Task.Run(() => session.WriteRam(ram, p => progress.Report(p)));
-        ConsWriteLine(words + " words sent");
-        PrintMD5(ram);
-        ConsWriteLine("OK");
+        entry.Succeed($"OK — {words} words sent, MD5 {Md5(ram)}");
     });
 }

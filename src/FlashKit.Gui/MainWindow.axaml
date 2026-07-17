@@ -1,56 +1,122 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:gui="using:FlashKit.Gui"
         x:Class="FlashKit.Gui.MainWindow"
         Title="Flashkit-md"
         Icon="/Assets/flashkit.ico"
-        Width="740" Height="490"
-        CanResize="False">
+        Width="820" Height="600"
+        MinWidth="700" MinHeight="480">
 
-  <!-- Same shape as the original WinForms Form1: ROM/RAM button groups and
-       Cart info on the left, read-only console on the right, progress bar
-       across the bottom. -->
-  <Grid Margin="12" ColumnDefinitions="220,12,*" RowDefinitions="Auto,12,Auto,12,*,12,Auto">
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Opacity" Value="0.7" />
+    </Style>
+    <Style Selector="TextBlock.failed">
+      <Setter Property="Foreground" Value="#D9534F" />
+    </Style>
+  </Window.Styles>
 
-    <Border Grid.Row="0" Grid.Column="0"
+  <!-- Status bar (device + cartridge, fed by the background poller) on top;
+       ROM/RAM button groups on the left; cart info panel and per-operation
+       transaction log on the right. -->
+  <Grid Margin="12" ColumnDefinitions="220,12,*" RowDefinitions="Auto,12,*">
+
+    <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
             BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-            BorderThickness="1" CornerRadius="4" Padding="8">
-      <StackPanel Spacing="8">
-        <TextBlock Text="ROM" FontWeight="SemiBold" />
-        <Button x:Name="BtnReadRom" Content="Read ROM" Height="48"
-                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                Click="OnReadRom" />
-        <Button x:Name="BtnWriteRom" Content="Write ROM" Height="48"
-                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                Click="OnWriteRom" />
+            BorderThickness="1" CornerRadius="4" Padding="10,8">
+      <StackPanel Orientation="Horizontal" Spacing="24">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Ellipse x:Name="DeviceDot" Width="10" Height="10" Fill="#8B949E" VerticalAlignment="Center" />
+          <TextBlock x:Name="DeviceStatusText" Text="Looking for programmer..." VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Ellipse x:Name="CartDot" Width="10" Height="10" Fill="#8B949E" VerticalAlignment="Center" />
+          <TextBlock x:Name="CartStatusText" Text="—" VerticalAlignment="Center" />
+        </StackPanel>
       </StackPanel>
     </Border>
 
-    <Border Grid.Row="2" Grid.Column="0"
-            BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-            BorderThickness="1" CornerRadius="4" Padding="8">
-      <StackPanel Spacing="8">
-        <TextBlock Text="RAM" FontWeight="SemiBold" />
-        <Button x:Name="BtnReadRam" Content="Read RAM" Height="48"
-                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                Click="OnReadRam" />
-        <Button x:Name="BtnWriteRam" Content="Write RAM" Height="48"
-                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                Click="OnWriteRam" />
-      </StackPanel>
-    </Border>
+    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="12">
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+              BorderThickness="1" CornerRadius="4" Padding="8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="ROM" FontWeight="SemiBold" />
+          <Button x:Name="BtnReadRom" Content="Read ROM" Height="48"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Click="OnReadRom" />
+          <Button x:Name="BtnWriteRom" Content="Write ROM" Height="48"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Click="OnWriteRom" />
+        </StackPanel>
+      </Border>
 
-    <Button x:Name="BtnCartInfo" Grid.Row="4" Grid.Column="0"
-            Content="Cart info" VerticalAlignment="Bottom" Height="64"
-            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-            Click="OnCartInfo" />
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+              BorderThickness="1" CornerRadius="4" Padding="8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="RAM" FontWeight="SemiBold" />
+          <Button x:Name="BtnReadRam" Content="Read RAM" Height="48"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Click="OnReadRam" />
+          <Button x:Name="BtnWriteRam" Content="Write RAM" Height="48"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Click="OnWriteRam" />
+        </StackPanel>
+      </Border>
 
-    <TextBox x:Name="ConsoleBox" Grid.Row="0" Grid.RowSpan="5" Grid.Column="2"
-             IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
-             FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" FontSize="13"
-             ScrollViewer.VerticalScrollBarVisibility="Auto"
-             ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+      <Button x:Name="BtnRefresh" Content="Refresh cart info" Height="40"
+              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+              Click="OnRefresh" />
+    </StackPanel>
 
-    <ProgressBar x:Name="Progress" Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3"
-                 Height="28" Minimum="0" Maximum="1" Value="0" />
+    <Grid Grid.Row="2" Grid.Column="2" RowDefinitions="Auto,12,*">
+
+      <Border Grid.Row="0"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+              BorderThickness="1" CornerRadius="4" Padding="10,8">
+        <Grid ColumnDefinitions="130,8,*" RowDefinitions="Auto,6,Auto,6,Auto,6,Auto">
+          <TextBlock Classes="label" Grid.Row="0" Grid.Column="0" Text="Cartridge" />
+          <TextBlock x:Name="InfoName" Grid.Row="0" Grid.Column="2" Text="—" FontWeight="SemiBold" />
+          <TextBlock Classes="label" Grid.Row="2" Grid.Column="0" Text="ROM size" />
+          <TextBlock x:Name="InfoRomSize" Grid.Row="2" Grid.Column="2" Text="—" />
+          <TextBlock Classes="label" Grid.Row="4" Grid.Column="0" Text="RAM size" />
+          <TextBlock x:Name="InfoRamSize" Grid.Row="4" Grid.Column="2" Text="—" />
+          <TextBlock Classes="label" Grid.Row="6" Grid.Column="0" Text="Header ROM size" />
+          <TextBlock x:Name="InfoHeaderSize" Grid.Row="6" Grid.Column="2" Text="—" />
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="2"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+              BorderThickness="1" CornerRadius="4" Padding="10,8">
+        <Grid RowDefinitions="Auto,8,*">
+          <TextBlock Grid.Row="0" Text="Transactions" FontWeight="SemiBold" />
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="LogList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="gui:TransactionEntry">
+                  <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                          BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,4,8">
+                    <StackPanel Spacing="4">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding Time}" FontSize="12" Opacity="0.7"
+                                   FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                      </StackPanel>
+                      <TextBlock Text="{Binding Detail}" FontSize="12" Opacity="0.8"
+                                 TextWrapping="Wrap" IsVisible="{Binding HasDetail}" />
+                      <ProgressBar Height="8" Minimum="0"
+                                   Maximum="{Binding ProgressMax}" Value="{Binding ProgressValue}" />
+                      <TextBlock Text="{Binding Status}" FontSize="12" TextWrapping="Wrap"
+                                 Classes.failed="{Binding Failed}" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
   </Grid>
 </Window>

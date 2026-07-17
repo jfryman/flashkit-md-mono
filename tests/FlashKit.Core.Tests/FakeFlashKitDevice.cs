@@ -31,6 +31,13 @@ sealed class FakeFlashKitDevice : ISerialPort
 
     public bool FlashWritable { get; init; }
     public byte DeviceId { get; init; } = 0x55;
+
+    /// <summary>False simulates an empty cart slot: the bus floats, so reads
+    /// return open-bus 0xFFFF and writes (including the 0xA13000 bank
+    /// register, which lives on the cart) go nowhere. The programmer itself
+    /// still answers the device-ID handshake. Settable mid-test to emulate
+    /// inserting or removing a cartridge.</summary>
+    public bool CartInserted { get; set; } = true;
     public byte Delay { get; private set; }
 
     // firmware registers
@@ -205,6 +212,7 @@ sealed class FakeFlashKitDevice : ISerialPort
 
     ushort BusRead16(int wordAddr)
     {
+        if (!CartInserted) return 0xFFFF;
         int byteAddr = wordAddr * 2;
         if (cfiMode) return wordAddr switch { 0x10 => 0x0051, 0x11 => 0x0052, 0x12 => 0x0059, _ => (ushort)0 };
         if (SramActive(byteAddr)) return (ushort)(0xFF00 | sram![SramIndex(wordAddr)]);
@@ -213,6 +221,7 @@ sealed class FakeFlashKitDevice : ISerialPort
 
     void BusWrite16(int wordAddr, ushort val)
     {
+        if (!CartInserted) return;
         int byteAddr = wordAddr * 2;
         if (byteAddr == 0xA13000)
         {
@@ -229,6 +238,7 @@ sealed class FakeFlashKitDevice : ISerialPort
 
     void BusWrite8(int wordAddr, byte val)
     {
+        if (!CartInserted) return;
         int byteAddr = wordAddr * 2;
         if (byteAddr == 0xA13000)
         {

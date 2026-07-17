@@ -33,7 +33,13 @@ public sealed class FlashChipNotFoundException : Exception
 /// header declares (end address at 0x1A4 plus one), or null when the header
 /// holds no plausible size — e.g. blank or partially programmed flash.
 /// <paramref name="RomBytes"/> is the mirror-probed size.</summary>
-public sealed record CartInfo(string RomName, int RomBytes, int RamBytes, int? HeaderRomBytes = null);
+public sealed record CartInfo(string RomName, int RomBytes, int RamBytes, int? HeaderRomBytes = null)
+{
+    /// <summary>False when the header was unreadable and mirror probing found
+    /// nothing — the "Unknown (X) / 0K" signature an empty or unseated cart
+    /// slot produces when the bus floats (see docs/hardware-validation.md).</summary>
+    public bool CartDetected => RomBytes != 0 || !RomName.StartsWith("Unknown", StringComparison.Ordinal);
+}
 
 /// <summary>
 /// High-level cartridge workflows over a connected programmer — the API
