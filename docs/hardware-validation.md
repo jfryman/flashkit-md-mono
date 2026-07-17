@@ -9,7 +9,7 @@ Compare against dumps produced by the original Windows client where possible.
 | 1 | `info` on a known cart — name/size/RAM match the original client | ✅ | ✅ | ✅ |
 | 2 | `read-rom` — MD5 identical to a dump from the original client | ✅ | ✅ | ✅ |
 | 3 | `read-ram` on a save cart, then `write-ram` round-trip | ✅ | ✅ | ✅ |
-| 4 | `write-rom` to a FlashKit cart — verify passes, cart boots on console | ✅ | ✅* | ✅* |
+| 4 | `write-rom` to a FlashKit cart — verify passes, cart boots on console | ✅ | ✅ | ✅* |
 
 ## macOS validation runbook (for the agent running on the Mac)
 
@@ -187,9 +187,10 @@ Notes / discrepancies:
   with `Battle City Online (X)`, 2048K — backed up before overwrite).
   Erase + write + built-in verify passed; an independent re-dump is
   byte-identical to the source image (MD5 64-73-B1-50-...-51-FE). Like the
-  other FlashKit cart, this one reports RAM 0B (SRAM-less). (*) console
-  boot not re-tested from the Mac-flashed cart; the identical image was
-  already boot-validated in the Linux run.
+  other FlashKit cart, this one reports RAM 0B (SRAM-less). Console boot
+  from the Mac-flashed cart was tested and passed; that result was lost
+  from the original session notes and restored here 2026-07-17 per the
+  user's confirmation.
 - macOS divergence — write-rom hangs on exit: after printing OK, the
   process never exits and keeps the port open. Sampled stack shows the
   main thread stuck in `tcdrain` (ioctl) under `SerialPort.Close()` on the
