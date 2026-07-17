@@ -36,8 +36,13 @@ each `v*` tag: `.tar.gz` for Linux/macOS, `.zip` for Windows, with a
 
 ```
 dotnet publish src/flashkit-md -c Release -r linux-x64 --self-contained \
-  -p:PublishSingleFile=true -o artifacts/linux-x64
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+  -o artifacts/linux-x64
 ```
+
+(`IncludeNativeLibrariesForSelfExtract` matters: without it the serial-port
+native library lands next to the binary instead of inside it, and the
+binary alone cannot open any port.)
 
 or run `./publish.sh` to build all supported targets
 (`linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64`). The result is a single
@@ -64,6 +69,14 @@ source (no quarantine), or clear the flag:
 ```
 xattr -d com.apple.quarantine ./flashkit-md
 ```
+
+### macOS: write-rom may hang on exit
+
+Known issue: after `write-rom` finishes (it prints the final `OK`), the
+process can hang instead of exiting, keeping the serial port locked. The
+flash write and verify have completed by then — it is safe to Ctrl-C. If a
+later command reports the port as denied, check for a leftover
+`flashkit-md` process and kill it.
 
 ## Notes on flash carts
 

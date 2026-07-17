@@ -51,12 +51,20 @@ Both scripts handle that; for ad-hoc commands use
 
 ## Hardware testing (manual only)
 
-The programmer shows up as `/dev/ttyUSB0` here. If the shell session lacks
-the `uucp` group, wrap commands:
+The programmer shows up as `/dev/ttyUSB0` on the Linux dev machine and
+`/dev/cu.usbserial-*` on the Mac (no group membership needed there). If a
+Linux shell session lacks the `uucp` group, wrap commands:
 `sg uucp -c "DOTNET_ROOT=$HOME/.dotnet <binary> ..."`.
 Order operations least- to most-destructive (info → read-rom → read-ram →
 write-ram → write-rom) and record results in docs/hardware-validation.md.
 `dumps/` is gitignored — cart dumps and saves must never be committed.
+An `Unknown (X) / 0K` info result usually means the cart is unseated, not
+a code bug — re-check after reseating before debugging.
+
+Known macOS bug: after write-rom completes (prints OK), the process hangs
+in SerialPort.Close() — tcdrain never returns on the FTDI driver — and
+keeps the port open, so the next command gets "access denied". Kill the
+leftover process; the flash contents are fine. Unfixed as of 2026-07-17.
 
 ## Domain gotchas
 
