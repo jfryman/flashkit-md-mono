@@ -70,10 +70,14 @@ public sealed class FlashKitSession : IDisposable
 
     public string PortName => Device.getPortName();
 
+    /// <summary>Cart name for use in suggested filenames. Headers pad the
+    /// 48-char name field with spaces ("SONIC THE          HEDGEHOG 3"), so
+    /// runs of spaces are collapsed; the raw name stays available via
+    /// <see cref="GetInfo"/>.</summary>
     public string GetRomName()
     {
         Device.setDelay(1);
-        return Cart.getRomName();
+        return string.Join(' ', Cart.getRomName().Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     public CartInfo GetInfo()

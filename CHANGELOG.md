@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+IMPROVEMENTS:
+
+ * cli, gui: suggested filenames for read-rom/read-ram no longer carry the
+   ROM header's internal space padding — runs of spaces collapse to one
+   (Sonic 3 now suggests "SONIC THE HEDGEHOG 3 (U).bin" instead of
+   "SONIC THE               HEDGEHOG 3 (U).bin"). The cart-info display
+   still shows the header name verbatim.
+
 ## 1.4.1 (July 17, 2026)
 
 BUG FIXES:

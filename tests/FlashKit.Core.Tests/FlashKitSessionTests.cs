@@ -25,6 +25,18 @@ public class FlashKitSessionTests
     }
 
     [Fact]
+    public void GetRomName_collapses_header_space_padding()
+    {
+        // Real headers pad the name field internally (Sonic 3 is
+        // "SONIC THE               HEDGEHOG 3"); the suggested-filename
+        // name must collapse the runs.
+        var rom = TestRoms.MakeRom(0x80000, "SONIC THE               HEDGEHOG 3");
+        using var session = Connect(new FakeFlashKitDevice(rom));
+
+        Assert.Equal("SONIC THE HEDGEHOG 3 (U)", session.GetRomName());
+    }
+
+    [Fact]
     public void GetInfo_reports_null_header_size_for_blank_header()
     {
         // All-0xFF flash: header end address wraps past the chip. All-zero
