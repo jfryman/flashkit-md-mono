@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 (July 17, 2026)
+
+1.0 milestone: hardware validation is complete on all three platforms
+(Linux, macOS, Windows) — see docs/hardware-validation.md. Dumps are
+byte-identical across platforms and to the original krikzz Windows
+client (ROM and SRAM), and write-rom round-trips were verified on real
+flash carts including console boot tests.
 
 IMPROVEMENTS:
 

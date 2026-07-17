@@ -1,14 +1,17 @@
 # Goal: Cross-platform port of FlashKit MD (Linux + macOS + Windows)
 
-> **Status (2026-07-17):** Stages 0-4 complete. Stage 5: Linux and macOS
-> columns fully validated on real hardware; Windows is next — see the
-> Windows runbook in docs/hardware-validation.md. v0.9.1 fixed the
-> v0.9.0 packaging bugs found during macOS validation (native libs
-> embedded in the single file; osx binaries ad-hoc signed). v0.9.2 fixed
-> the macOS write-rom exit hang (guarded serial close; hardware
+> **Status (2026-07-17):** Stages 0-5 complete — released as v1.0.0.
+> Hardware validation passed on Linux, macOS, and Windows, including a
+> byte-identical cross-check against the original krikzz client (ROM and
+> SRAM) and console boot tests of flashed carts; see
+> docs/hardware-validation.md. Along the way: v0.9.1 fixed the v0.9.0
+> packaging bugs found during macOS validation (native libs embedded in
+> the single file; osx binaries ad-hoc signed), and v0.9.2 fixed the
+> macOS write-rom exit hang (guarded serial close; hardware
 > re-validated). Extras beyond the original plan: write-rom --full-erase,
 > bake-save, and a library-first refactor (FlashKitSession) enabling
-> future TUI/GUI front-ends (Stage 6).
+> future TUI/GUI front-ends (Stage 6 — the only stage still open,
+> optional).
 
 Port krikzz's FlashKit MD programmer client (C# WinForms, .NET Framework 4.0)
 to a cross-platform .NET 8 CLI that runs on Linux, macOS (Intel + Apple
