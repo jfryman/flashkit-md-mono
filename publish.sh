@@ -27,15 +27,17 @@ for rid in "${RIDS[@]}"; do
     # under the native-libs flag alone — the GUI then crashes at launch
     # anywhere but the publish dir. Embedding everything is the fix; the
     # cost is full extraction to ~/.net on first run.
-    extra=()
+    # (plain string, not an array: empty-array expansion under set -u
+    # breaks the bash 3.2 on macOS CI runners)
+    extra=""
     case "$rid:$proj" in osx-*:src/FlashKit.Gui)
-      extra+=(-p:IncludeAllContentForSelfExtract=true) ;;
+      extra="-p:IncludeAllContentForSelfExtract=true" ;;
     esac
     dotnet publish "$proj" -c Release -r "$rid" --self-contained \
       -p:PublishSingleFile=true \
       -p:EnableCompressionInSingleFile=true \
       -p:IncludeNativeLibrariesForSelfExtract=true \
-      "${extra[@]}" \
+      $extra \
       -o "artifacts/$rid"
   done
   # Any loose native lib here means the single-file bundle silently left
