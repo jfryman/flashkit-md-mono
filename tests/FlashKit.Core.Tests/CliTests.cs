@@ -164,6 +164,110 @@ public class CliTests : IDisposable
         Assert.Contains("--full-erase only applies to write-rom", stderr.ToString());
     }
 
+    [Fact]
+    public void info_shows_header_size_only_when_it_differs_from_probe()
+    {
+        // Probed 512K, header claims 256K — the flash-cart situation where
+        // stale data above the image confuses mirror probing.
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000, headerRomSize: 0x40000));
+        int exit = App(fake).Run(new[] { "info" });
+
+        Assert.Equal(0, exit);
+        Assert.Contains("ROM size : 512K", stdout.ToString());
+        Assert.Contains("Header ROM size : 256K", stdout.ToString());
+    }
+
+    [Fact]
+    public void info_omits_header_size_when_it_matches_probe()
+    {
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000));
+        int exit = App(fake).Run(new[] { "info" });
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("Header ROM size", stdout.ToString());
+    }
+
+    [Fact]
+    public void read_rom_trust_header_dumps_the_header_extent()
+    {
+        var rom = TestRoms.MakeRom(0x80000, headerRomSize: 0x40000);
+        var fake = new FakeFlashKitDevice(rom);
+        string file = TempFile("dump.bin");
+
+        int exit = App(fake).Run(new[] { "read-rom", "--trust-header", file });
+
+        Assert.Equal(0, exit);
+        Assert.Equal(rom.Take(0x40000).ToArray(), File.ReadAllBytes(file));
+        Assert.Contains("ROM size : 256K (from header)", stdout.ToString());
+    }
+
+    [Fact]
+    public void read_rom_trust_header_falls_back_when_header_is_blank()
+    {
+        var blank = new byte[0x400000];
+        Array.Fill(blank, (byte)0xFF);
+        // Give probing something to measure: make the first 512K distinct.
+        var withRom = TestRoms.MakeRom(0x80000);
+        Array.Copy(withRom, blank, withRom.Length);
+        blank[0x1A4] = blank[0x1A5] = blank[0x1A6] = blank[0x1A7] = 0xFF;
+        var fake = new FakeFlashKitDevice(blank);
+        string file = TempFile("dump.bin");
+
+        int exit = App(fake).Run(new[] { "read-rom", "--trust-header", file });
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Header declares no plausible ROM size", stdout.ToString());
+    }
+
+    [Fact]
+    public void trust_header_is_rejected_outside_read_rom()
+    {
+        int exit = AppWithoutDevice().Run(new[] { "info", "--trust-header" });
+
+        Assert.Equal(2, exit);
+        Assert.Contains("--trust-header only applies to read-rom", stderr.ToString());
+    }
+
+    [Fact]
+    public void write_rom_refuses_a_cart_with_no_flash_chip()
+    {
+        // A real game cart's mask ROM ignores the CFI query, so write-rom
+        // must fail fast instead of "erasing" and failing at verify.
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000));
+        string file = TempFile("game.bin");
+        File.WriteAllBytes(file, new byte[0x10000]);
+
+        int exit = App(fake).Run(new[] { "write-rom", file });
+
+        Assert.Equal(1, exit);
+        Assert.Contains("No flash chip detected", stderr.ToString());
+        Assert.Contains("--no-flash-check", stderr.ToString());
+    }
+
+    [Fact]
+    public void write_rom_no_flash_check_skips_the_cfi_probe()
+    {
+        // Same non-flash cart, but with the check skipped the flow reaches
+        // the verify stage (which then fails, as nothing was programmed).
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000));
+        string file = TempFile("game.bin");
+        File.WriteAllBytes(file, new byte[0x10000]);
+
+        int exit = App(fake).Run(new[] { "write-rom", "--no-flash-check", file });
+
+        Assert.Equal(1, exit);
+        Assert.Contains("Verify error", stderr.ToString());
+    }
+
+    [Fact]
+    public void no_flash_check_is_rejected_outside_write_commands()
+    {
+        int exit = AppWithoutDevice().Run(new[] { "read-rom", "--no-flash-check", TempFile("x.bin") });
+
+        Assert.Equal(2, exit);
+        Assert.Contains("--no-flash-check only applies to write-rom and bake-save", stderr.ToString());
+    }
+
     /// <summary>Programs a fill pattern into fake flash via the real command path.</summary>
     static void FlashFilled(FakeFlashKitDevice fake, int len, byte fill)
     {

@@ -17,7 +17,7 @@ namespace FlashKit.Core.Tests;
 ///  - Flash (when <see cref="FlashWritable"/>): AMD command set as used by the
 ///    client — sector erase (AA/55/80/AA/55 then 0x30 per sector, 8 KB each),
 ///    unlock bypass (AA/55/20), bypass program (A0 + data, AND semantics),
-///    reset (F0, 90/00).
+///    reset (F0, 90/00), CFI query (98 → 'QRY' at word 0x10, F0 exits).
 /// </summary>
 sealed class FakeFlashKitDevice : ISerialPort
 {
@@ -48,6 +48,7 @@ sealed class FakeFlashKitDevice : ISerialPort
     bool bypass;
     bool programArmed;
     bool eraseArmed;
+    bool cfiMode;
 
     public FakeFlashKitDevice(byte[] rom, int sramBytes = 0)
     {
@@ -205,6 +206,7 @@ sealed class FakeFlashKitDevice : ISerialPort
     ushort BusRead16(int wordAddr)
     {
         int byteAddr = wordAddr * 2;
+        if (cfiMode) return wordAddr switch { 0x10 => 0x0051, 0x11 => 0x0052, 0x12 => 0x0059, _ => (ushort)0 };
         if (SramActive(byteAddr)) return (ushort)(0xFF00 | sram![SramIndex(wordAddr)]);
         return (ushort)((rom[byteAddr % rom.Length] << 8) | rom[(byteAddr + 1) % rom.Length]);
     }
@@ -261,12 +263,19 @@ sealed class FakeFlashKitDevice : ISerialPort
         {
             flashSeq = 0;
             eraseArmed = false;
+            cfiMode = false;
             return;
         }
         if (bypass)
         {
             if (v == 0xA0) programArmed = true;
             else if (v == 0x90) bypass = false;
+            return;
+        }
+        if (v == 0x98)
+        {
+            // CFI query mode; a mask ROM cart (FlashWritable=false) ignores it
+            cfiMode = FlashWritable;
             return;
         }
         if (eraseArmed && v == 0x30)

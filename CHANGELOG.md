@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+FEATURES:
+
+ * cli: `read-rom --trust-header` dumps the extent declared in the ROM
+   header instead of the mirror-probed size — useful on flash carts,
+   where partially programmed flash can make probing misjudge the ROM's
+   extent. `info` now prints the header size whenever it disagrees with
+   the probed size. (Inspired by joeyparrish/flashkit-md-py.)
+ * cli: `write-rom` and `bake-save` now verify a CFI-capable flash chip
+   answers on the cart bus before erasing anything, failing fast on a
+   mask ROM game cart or an unseated cart instead of reporting a verify
+   error after a full "write". `--no-flash-check` skips the check.
+   (Inspired by joeyparrish/flashkit-md-py.)
+ * core: `FlashKitSession` gains `ReadHeaderRomSize()`, a size override
+   on `ReadRom`, `CheckFlash()`, and `skipFlashCheck` parameters on
+   `WriteRom`/`BakeSave`; `CartInfo` gains `HeaderRomBytes`.
+
 ## 1.0.1 (July 17, 2026)
 
 IMPROVEMENTS:

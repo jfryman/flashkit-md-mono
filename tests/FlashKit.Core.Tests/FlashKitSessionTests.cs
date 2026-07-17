@@ -21,6 +21,41 @@ public class FlashKitSessionTests
         Assert.Equal("TEST GAME (U)", info.RomName);
         Assert.Equal(0x80000, info.RomBytes);
         Assert.Equal(8192, info.RamBytes);
+        Assert.Equal(0x80000, info.HeaderRomBytes);
+    }
+
+    [Fact]
+    public void GetInfo_reports_null_header_size_for_blank_header()
+    {
+        // All-0xFF flash: header end address wraps past the chip. All-zero
+        // flash: end address 0 gives an implausible 1-byte size.
+        var blank = new byte[0x400000];
+        Array.Fill(blank, (byte)0xFF);
+        using (var session = Connect(new FakeFlashKitDevice(blank)))
+            Assert.Null(session.GetInfo().HeaderRomBytes);
+        using (var session = Connect(new FakeFlashKitDevice(new byte[0x400000])))
+            Assert.Null(session.GetInfo().HeaderRomBytes);
+    }
+
+    [Fact]
+    public void ReadRom_size_override_wins_over_probing()
+    {
+        var rom = TestRoms.MakeRom(0x80000);
+        using var session = Connect(new FakeFlashKitDevice(rom));
+
+        byte[] dump = session.ReadRom(size: 0x40000);
+
+        Assert.Equal(rom.Take(0x40000).ToArray(), dump);
+    }
+
+    [Fact]
+    public void ReadRom_rejects_bad_size_override()
+    {
+        using var session = Connect(new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)));
+
+        Assert.Throws<ArgumentException>(() => session.ReadRom(size: 0x40001));
+        Assert.Throws<ArgumentException>(() => session.ReadRom(size: 0));
+        Assert.Throws<ArgumentException>(() => session.ReadRom(size: 0x400002));
     }
 
     [Fact]
@@ -80,16 +115,43 @@ public class FlashKitSessionTests
     public void WriteRom_throws_VerifyException_when_flash_does_not_program()
     {
         // FlashWritable=false: erases and programs are silently ignored,
-        // so read-back cannot match and verification must fail.
+        // so read-back cannot match and verification must fail. The CFI
+        // check is skipped to reach the verify path.
         var fake = new FakeFlashKitDevice(new byte[0x400000]);
         using var session = Connect(fake);
         var data = new byte[0x10000];
         Array.Fill(data, (byte)0x42);
 
-        var x = Assert.Throws<VerifyException>(() => session.WriteRom(data));
+        var x = Assert.Throws<VerifyException>(() => session.WriteRom(data, skipFlashCheck: true));
 
         Assert.Equal(0, x.Offset);
         Assert.Equal("Verify error at 0", x.Message);
+    }
+
+    [Fact]
+    public void WriteRom_refuses_cart_without_flash_before_touching_it()
+    {
+        // A mask ROM cart ignores the CFI query, so the check must throw
+        // before any erase command is issued.
+        var rom = TestRoms.MakeRom(0x80000);
+        var pristine = rom.ToArray();
+        var fake = new FakeFlashKitDevice(rom);
+        using var session = Connect(fake);
+
+        Assert.Throws<FlashChipNotFoundException>(() => session.WriteRom(new byte[0x10000]));
+        Assert.Equal(pristine, fake.Rom);
+    }
+
+    [Fact]
+    public void CheckFlash_passes_on_flash_cart_and_leaves_it_readable()
+    {
+        var rom = TestRoms.MakeRom(0x80000);
+        var fake = new FakeFlashKitDevice(rom.ToArray()) { FlashWritable = true };
+        using var session = Connect(fake);
+
+        session.CheckFlash();
+
+        Assert.Equal(rom, session.ReadRom()); // reset returned chip to array mode
     }
 
     [Fact]

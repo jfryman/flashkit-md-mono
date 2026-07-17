@@ -17,7 +17,23 @@ public sealed class VerifyException : Exception
     }
 }
 
-public sealed record CartInfo(string RomName, int RomBytes, int RamBytes);
+/// <summary>No CFI-capable flash chip answered on the cart bus — the cart
+/// is not flashable (e.g. a mask ROM game cart) or is not seated.</summary>
+public sealed class FlashChipNotFoundException : Exception
+{
+    public FlashChipNotFoundException(byte[] cfiResponse)
+        : base("No flash chip detected: CFI query returned "
+               + BitConverter.ToString(cfiResponse)
+               + " instead of QRY. Not a flash cart, or the cart is unseated.")
+    {
+    }
+}
+
+/// <summary><paramref name="HeaderRomBytes"/> is the ROM size the cart's
+/// header declares (end address at 0x1A4 plus one), or null when the header
+/// holds no plausible size — e.g. blank or partially programmed flash.
+/// <paramref name="RomBytes"/> is the mirror-probed size.</summary>
+public sealed record CartInfo(string RomName, int RomBytes, int RamBytes, int? HeaderRomBytes = null);
 
 /// <summary>
 /// High-level cartridge workflows over a connected programmer — the API
@@ -63,14 +79,42 @@ public sealed class FlashKitSession : IDisposable
     public CartInfo GetInfo()
     {
         Device.setDelay(1);
-        return new CartInfo(Cart.getRomName(), Cart.getRomSize(), Cart.getRamSize());
+        return new CartInfo(Cart.getRomName(), Cart.getRomSize(), Cart.getRamSize(), ReadHeaderRomSize());
     }
 
-    /// <summary>Dumps the cart ROM (size auto-detected via mirror probing).</summary>
-    public byte[] ReadRom(Action<OperationProgress>? progress = null)
+    /// <summary>ROM size declared in the cart header, or null when the header
+    /// value is implausible. Unlike mirror probing this reports the intended
+    /// image extent even on flash carts, where partially programmed flash has
+    /// no mirrors to probe.</summary>
+    public int? ReadHeaderRomSize()
     {
         Device.setDelay(1);
-        int rom_size = Cart.getRomSize();
+        var hdr = new byte[512];
+        Device.writeWord(0xA13000, 0x0000);
+        Device.setAddr(0);
+        Device.read(hdr, 0, 512);
+        return HeaderRomSize(hdr);
+    }
+
+    internal static int? HeaderRomSize(byte[] header)
+    {
+        // Sega header: ROM start address at 0x1A0, end address at 0x1A4,
+        // both big-endian. A plausible header has start 0 and an even size
+        // within the chip; anything else (blank flash reads 0xFF..) is null.
+        long start = (uint)((header[0x1A0] << 24) | (header[0x1A1] << 16) | (header[0x1A2] << 8) | header[0x1A3]);
+        long size = (uint)((header[0x1A4] << 24) | (header[0x1A5] << 16) | (header[0x1A6] << 8) | header[0x1A7]) + 1L;
+        if (start != 0 || size < 0x200 || size > FlashChipBytes || size % 2 != 0) return null;
+        return (int)size;
+    }
+
+    /// <summary>Dumps the cart ROM. <paramref name="size"/> overrides the
+    /// mirror-probed size (e.g. with <see cref="ReadHeaderRomSize"/>).</summary>
+    public byte[] ReadRom(Action<OperationProgress>? progress = null, int? size = null)
+    {
+        if (size is int s && (s <= 0 || s % 2 != 0 || s > FlashChipBytes))
+            throw new ArgumentException("invalid ROM size override: " + s);
+        Device.setDelay(1);
+        int rom_size = size ?? Cart.getRomSize();
         var rom = new byte[rom_size];
         progress?.Invoke(new(OperationPhase.Read, 0, rom_size));
         Device.writeWord(0xA13000, 0x0000);
@@ -84,15 +128,33 @@ public sealed class FlashKitSession : IDisposable
         return rom;
     }
 
+    static readonly byte[] CfiQry = { 0x00, 0x51, 0x00, 0x52, 0x00, 0x59 };
+
+    /// <summary>Verifies a CFI-capable flash chip answers on the cart bus
+    /// (query mode via 0x98, 'QRY' at word address 0x10) before destructive
+    /// writes — fails fast instead of "erasing" a mask ROM cart and finding
+    /// out at verify time. Not part of the original client; the check is the
+    /// standard CFI probe, as flashkit-md-py does it.</summary>
+    public void CheckFlash()
+    {
+        Device.writeByte(0x55 * 2, 0x98);
+        var cfi = new byte[6];
+        Device.setAddr(0x20);
+        Device.read(cfi, 0, 6);
+        Device.writeByte(0, 0xf0);
+        if (!cfi.AsSpan().SequenceEqual(CfiQry)) throw new FlashChipNotFoundException(cfi);
+    }
+
     /// <summary>
     /// Erases, programs, and verifies a ROM image (padded to 64 KB, capped
     /// at the 4 MB chip). <paramref name="fullErase"/> wipes the whole chip
     /// first — only safe on carts with a full-size chip, since smaller chips
     /// mirror the ROM into the upper address space.
     /// </summary>
-    public void WriteRom(byte[] image, bool fullErase = false, Action<OperationProgress>? progress = null)
+    public void WriteRom(byte[] image, bool fullErase = false, Action<OperationProgress>? progress = null, bool skipFlashCheck = false)
     {
         Device.setDelay(0);
+        if (!skipFlashCheck) CheckFlash();
         int rom_size = image.Length;
         if (rom_size % 65536 != 0) rom_size = rom_size / 65536 * 65536 + 65536;
         if (rom_size > FlashChipBytes) rom_size = FlashChipBytes;
@@ -193,13 +255,14 @@ public sealed class FlashKitSession : IDisposable
     /// Needs a full-size 4 MB chip, like <see cref="WriteRom"/> with
     /// fullErase.
     /// </summary>
-    public void BakeSave(byte[] srm, Action<OperationProgress>? progress = null)
+    public void BakeSave(byte[] srm, Action<OperationProgress>? progress = null, bool skipFlashCheck = false)
     {
         if (srm.Length == 0) throw new ArgumentException("save image is empty");
         if (srm.Length % 2 != 0) throw new ArgumentException("save image must have an even length (word stream)");
         if (srm.Length > 0x100000) throw new ArgumentException("save image too large (max 1 MB)");
 
         Device.setDelay(0);
+        if (!skipFlashCheck) CheckFlash();
         try
         {
             int span = (srm.Length + 65535) / 65536 * 65536;

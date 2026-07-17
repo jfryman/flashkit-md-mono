@@ -23,7 +23,11 @@ flashkit-md [--port <serial-port>] <command> [file]
 
   info               print cart ROM name/size and save-RAM size
   read-rom [file]    dump cart ROM (default file: <ROM name>.bin)
+      --trust-header dump the size the ROM header declares, not the
+                     mirror-probed size (useful on flash carts)
   write-rom <file>   erase flash cart and write ROM image
+      --no-flash-check   skip the CFI flash-presence check run before
+                     erasing (also applies to bake-save)
   read-ram [file]    dump save RAM (default file: <ROM name>.srm)
   write-ram <file>   write save RAM from file
 ```

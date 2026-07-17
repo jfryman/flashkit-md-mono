@@ -16,10 +16,15 @@ public sealed class CliApp
         commands:
           info               print cart ROM name/size and save-RAM size
           read-rom [file]    dump cart ROM (default file: <ROM name>.bin)
+              --trust-header dump the size the ROM header declares instead
+                             of the mirror-probed size (useful on flash
+                             carts, where probing can misjudge the extent)
           write-rom <file>   erase flash cart and write ROM image
               --full-erase   erase the entire 4 MB chip first, so no stale
                              data above the image shows up as ghost saves
                              (only for carts with a full-size 4 MB chip)
+              --no-flash-check   skip the CFI flash-presence check that
+                             write-rom and bake-save run before erasing
           read-ram [file]    dump save RAM (default file: <ROM name>.srm)
           write-ram <file>   write save RAM from file
           bake-save <file>   program a save image into flash at the save
@@ -46,6 +51,8 @@ public sealed class CliApp
         string? command = null;
         string? file = null;
         bool fullErase = false;
+        bool trustHeader = false;
+        bool noFlashCheck = false;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -59,6 +66,8 @@ public sealed class CliApp
                 portName = args[++i];
             }
             else if (args[i] == "--full-erase") fullErase = true;
+            else if (args[i] == "--trust-header") trustHeader = true;
+            else if (args[i] == "--no-flash-check") noFlashCheck = true;
             else if (command == null) command = args[i];
             else if (file == null) file = args[i];
             else
@@ -71,6 +80,18 @@ public sealed class CliApp
         if (fullErase && command != "write-rom")
         {
             err.WriteLine("--full-erase only applies to write-rom");
+            return 2;
+        }
+
+        if (trustHeader && command != "read-rom")
+        {
+            err.WriteLine("--trust-header only applies to read-rom");
+            return 2;
+        }
+
+        if (noFlashCheck && command is not ("write-rom" or "bake-save"))
+        {
+            err.WriteLine("--no-flash-check only applies to write-rom and bake-save");
             return 2;
         }
 
@@ -87,19 +108,25 @@ public sealed class CliApp
                 case "info":
                     return WithSession(portName, Info);
                 case "read-rom":
-                    return WithSession(portName, session => ReadRom(session, file));
+                    return WithSession(portName, session => ReadRom(session, file, trustHeader));
                 case "write-rom":
-                    return WithSession(portName, session => WriteRom(session, file!, fullErase));
+                    return WithSession(portName, session => WriteRom(session, file!, fullErase, noFlashCheck));
                 case "read-ram":
                     return WithSession(portName, session => ReadRam(session, file));
                 case "write-ram":
                     return WithSession(portName, session => WriteRam(session, file!));
                 case "bake-save":
-                    return WithSession(portName, session => BakeSave(session, file!));
+                    return WithSession(portName, session => BakeSave(session, file!, noFlashCheck));
                 default:
                     err.WriteLine(Usage);
                     return 2;
             }
+        }
+        catch (FlashChipNotFoundException x)
+        {
+            err.WriteLine(x.Message);
+            err.WriteLine("Use --no-flash-check if you are sure the cart is writable.");
+            return 1;
         }
         catch (Exception x)
         {
@@ -121,6 +148,8 @@ public sealed class CliApp
         var info = session.GetInfo();
         con.WriteLine("ROM name : " + info.RomName);
         con.WriteLine("ROM size : " + info.RomBytes / 1024 + "K");
+        if (info.HeaderRomBytes is int h && h != info.RomBytes)
+            con.WriteLine("Header ROM size : " + h / 1024 + "K (read-rom --trust-header dumps this extent)");
         PrintRamSize(info.RamBytes);
     }
 
@@ -136,21 +165,27 @@ public sealed class CliApp
         }
     }
 
-    void ReadRom(FlashKitSession session, string? file)
+    void ReadRom(FlashKitSession session, string? file, bool trustHeader)
     {
         string path = file ?? session.GetRomName() + ".bin";
         con.WriteLine("Read ROM to " + path);
-        byte[] rom = session.ReadRom(RenderProgress());
-        con.WriteLine("ROM size : " + rom.Length / 1024 + "K");
+        int? size = null;
+        if (trustHeader)
+        {
+            size = session.ReadHeaderRomSize();
+            if (size == null) con.WriteLine("Header declares no plausible ROM size; using probed size");
+        }
+        byte[] rom = session.ReadRom(RenderProgress(), size);
+        con.WriteLine("ROM size : " + rom.Length / 1024 + "K" + (size != null ? " (from header)" : ""));
         File.WriteAllBytes(path, rom);
         PrintMD5(rom);
         con.WriteLine("OK");
     }
 
-    void WriteRom(FlashKitSession session, string file, bool fullErase)
+    void WriteRom(FlashKitSession session, string file, bool fullErase, bool noFlashCheck)
     {
         byte[] image = File.ReadAllBytes(file);
-        session.WriteRom(image, fullErase, RenderProgress(phase => phase switch
+        session.WriteRom(image, fullErase, skipFlashCheck: noFlashCheck, progress: RenderProgress(phase => phase switch
         {
             OperationPhase.Erase => fullErase ? "Flash erase (full chip)..." : "Flash erase...",
             OperationPhase.Write => "Flash write...",
@@ -181,11 +216,11 @@ public sealed class CliApp
         con.WriteLine("OK");
     }
 
-    void BakeSave(FlashKitSession session, string file)
+    void BakeSave(FlashKitSession session, string file, bool noFlashCheck)
     {
         byte[] srm = File.ReadAllBytes(file);
         con.WriteLine("Bake save into flash at 0x200000...");
-        session.BakeSave(srm, RenderProgress(phase =>
+        session.BakeSave(srm, skipFlashCheck: noFlashCheck, progress: RenderProgress(phase =>
             phase == OperationPhase.Verify ? "Verify..." : null));
         PrintMD5(srm);
         con.WriteLine("Note: baked saves are a read-only snapshot; in-game saving will not persist.");
