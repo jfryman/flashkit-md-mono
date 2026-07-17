@@ -1,0 +1,254 @@
+namespace FlashKit.Core;
+
+/// <summary>
+/// Cartridge introspection: ROM header parsing, ROM size probing via mirror
+/// detection, SRAM detection/sizing through the 0xA13000 bank register.
+///
+/// Ported from the original Windows client's Cart.cs with logic kept verbatim
+/// for diffability against src-extracted/flashkit-md/Cart.cs; static calls to
+/// Device were replaced by an injected instance.
+/// </summary>
+public class Cart
+{
+    public const int MAP_2M = 1;
+    public const int MAP_3M = 2;
+    public const int MAP_SSF = 3;
+
+    readonly Device device;
+
+    public Cart(Device device)
+    {
+        this.device = device;
+    }
+
+    static string getRomRegion(byte[] rom_hdr)
+    {
+        byte val = rom_hdr[0x1f0];
+        if (val != rom_hdr[0x1f1] && rom_hdr[0x1f1] != 0x20 && rom_hdr[0x1f1] != 0) return "W";
+
+        switch (val)
+        {
+            case (byte)'F':
+            case (byte)'C':
+                return "W";
+
+            case (byte)'U':
+            case (byte)'W':
+            case (byte)'4':
+            case 4:
+                return "U";
+
+            case (byte)'J':
+            case (byte)'B':
+            case (byte)'1':
+            case 1:
+                return "J";
+
+            case (byte)'E':
+            case (byte)'A':
+            case (byte)'8':
+            case 8:
+                return "E";
+        }
+
+        return "X";
+    }
+
+    public string getRomName()
+    {
+        string? name = null;
+        byte[] rom_hdr = new byte[512];
+        device.setAddr(0);
+        device.read(rom_hdr, 0, 512);
+
+        name = getRomName(0x120, rom_hdr);
+
+        if (name == null) name = getRomName(0x150, rom_hdr);
+
+        if (name == null) name = "Unknown";
+
+        name += " (" + getRomRegion(rom_hdr) + ")";
+
+        return name;
+    }
+
+    static string? getRomName(int offset, byte[] buff)
+    {
+        string name = "";
+        int name_empty = 1;
+
+        for (int i = offset + 47; i >= offset; i--)
+        {
+            if (buff[i] != 0 & buff[i] != 0x20) break;
+            if (buff[i] == 0x20) buff[i] = 0;
+        }
+
+        for (int i = offset; i < offset + 48; i++)
+        {
+            if (buff[i] == 0) break;
+            if (buff[i] == '/' || buff[i] == ':') buff[i] = (byte)'-';
+            try
+            {
+                name += (char)buff[i];
+                if (buff[i] != 0x20) name_empty = 0;
+                if (buff[i] == ' ' || buff[i] == '!' || buff[i] == '(' || buff[i] == ')' || buff[i] == '_' || buff[i] == '-') continue;
+                if (buff[i] == '.' || buff[i] == '[' || buff[i] == ']' || buff[i] == '|') continue;
+                if (buff[i] == '&' || buff[i] == 0x27 || buff[i] == 0x60) continue;
+                if (buff[i] >= '0' && buff[i] <= '9') continue;
+                if (buff[i] >= 'A' && buff[i] <= 'Z') continue;
+                if (buff[i] >= 'a' && buff[i] <= 'z') continue;
+
+                throw new Exception("name error");
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        if (name_empty != 0) return null;
+        return name;
+    }
+
+    int checkRomSize(int base_addr, int max_len)
+    {
+        int eq;
+        int base_len = 0x8000;
+        int len = 0x8000;
+        byte[] sector0 = new byte[256];
+        byte[] sector = new byte[256];
+        device.writeWord(0xA13000, 0x0000);
+
+        device.setAddr(base_addr);
+        device.read(sector0, 0, sector.Length);
+
+        for (; ; )
+        {
+            device.setAddr(base_addr + len);
+            device.read(sector, 0, sector.Length);
+
+            eq = 1;
+            for (int i = 0; i < sector.Length; i++) if (sector0[i] != sector[i]) eq = 0;
+            if (eq == 1) break;
+
+            len *= 2;
+            if (len >= max_len) break;
+        }
+
+        if (len == base_len) return 0;
+        return len;
+    }
+
+    public int getRomSize()
+    {
+        byte[] sector0 = new byte[512];
+        byte[] sector = new byte[512];
+        int ram = 0;
+        int extra_rom = 0;
+
+        if (ramAvailable())
+        {
+            ram = 1;
+            extra_rom = 1;
+            device.writeWord(0xA13000, 0x0000);
+            device.setAddr(0x200000);
+            device.read(sector0, 0, 512);
+            device.setAddr(0x200000);
+            device.read(sector, 0, 512);
+            for (int i = 0; i < sector.Length; i++) if (sector[i] != sector0[i]) extra_rom = 0;
+
+            if (extra_rom != 0)
+            {
+                extra_rom = 0;
+                device.setAddr(0x200000 + 0x10000);
+                device.read(sector, 0, 512);
+
+                device.writeWord(0xA13000, 0xffff);
+                device.setAddr(0x200000);
+                device.read(sector, 0, 512);
+                for (int i = 0; i < sector.Length; i++) if (sector[i] != sector0[i]) extra_rom = 1;
+            }
+        }
+
+        int max_rom_size = ram != 0 && extra_rom == 0 ? 0x200000 : 0x400000;
+        int len = checkRomSize(0, max_rom_size);
+
+        if (len == 0x400000)
+        {
+            len = 0x200000;
+            int len2 = checkRomSize(0x200000, 0x200000);
+            if (len2 == 0x200000)
+            {
+                len2 = checkRomSize(0x300000, 0x100000);
+                len2 = len2 >= 0x80000 ? 0x200000 : 0x100000;
+            }
+            if (len2 >= 0x80000) len += len2;
+        }
+
+        return len;
+    }
+
+    bool ramAvailable()
+    {
+        int first_word;
+        UInt16 tmp;
+
+        device.writeWord(0xA13000, 0xffff);
+
+        first_word = device.readWord(0x200000);
+        device.writeWord(0x200000, (UInt16)(first_word ^ 0xffff));
+        tmp = device.readWord(0x200000);
+        device.writeWord(0x200000, (UInt16)first_word);
+        tmp ^= 0xffff;
+        if ((first_word & 0x00ff) != (tmp & 0x00ff)) return false;
+
+        return true;
+    }
+
+    public int getRamSize()
+    {
+        int ram_szie = 256;
+        int first_word;
+        int first_word_tmp;
+        UInt16 tmp;
+        UInt16 tmp2;
+
+        int ram_type = 0x00ff;
+
+        if (!ramAvailable()) return 0;
+
+        first_word = device.readWord(0x200000);
+
+        while (ram_szie < 0x100000)
+        {
+            tmp = device.readWord(0x200000 + ram_szie);
+            device.writeWord(0x200000 + ram_szie, (UInt16)(tmp ^ 0xffff));
+            tmp2 = device.readWord(0x200000 + ram_szie);
+            first_word_tmp = device.readWord(0x200000);
+            device.writeWord(0x200000 + ram_szie, tmp);
+            tmp2 ^= 0xffff;
+            if ((tmp & 0xff) != (tmp2 & 0xff)) break;
+            if ((first_word & ram_type) != (first_word_tmp & ram_type)) break;
+            ram_szie *= 2;
+        }
+
+        return ram_szie / 2;
+    }
+
+    public byte[] getRam()
+    {
+        byte[] buff;
+
+        int ram_size = 0;
+        ram_size = getRamSize() * 2;
+
+        buff = new byte[ram_size];
+
+        device.writeWord(0xA13000, 0xffff);
+        device.setAddr(0x200000);
+
+        device.read(buff, 0, buff.Length);
+
+        return buff;
+    }
+}
