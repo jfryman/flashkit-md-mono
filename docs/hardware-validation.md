@@ -9,7 +9,7 @@ Compare against dumps produced by the original Windows client where possible.
 | 1 | `info` on a known cart — name/size/RAM match the original client | ✅ | ☐ | ☐ |
 | 2 | `read-rom` — MD5 identical to a dump from the original client | ✅* | ☐ | ☐ |
 | 3 | `read-ram` on a save cart, then `write-ram` round-trip | ✅ | ☐ | ☐ |
-| 4 | `write-rom` to a FlashKit cart — verify passes, cart boots on console | ☐ | ☐ | ☐ |
+| 4 | `write-rom` to a FlashKit cart — verify passes, cart boots on console | ✅* | ☐ | ☐ |
 
 Notes / discrepancies:
 
@@ -22,3 +22,6 @@ Notes / discrepancies:
 - Item 3: Sonic 3 save RAM backed up (512 words, 0xFF on even bytes as
   expected for 8-bit RAM), written back, re-dumped — all three MD5s identical
   (A8-D0-A3-45-52-A8-DF-FA-CC-FC-1F-4B-A1-F8-EB-3C).
+- Item 4: Action 52 dump (4 MB) flashed back to the FlashKit cart in ~72 s;
+  built-in verify passed and an independent re-dump matched the source MD5
+  exactly. (*) console boot test still pending.
