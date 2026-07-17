@@ -16,6 +16,8 @@ public sealed class TransactionEntry : INotifyPropertyChanged
     double progressMax = 1;
     double progressValue;
     bool failed;
+    bool succeeded;
+    bool running = true;
 
     public TransactionEntry(string title) => Title = title;
 
@@ -29,21 +31,30 @@ public sealed class TransactionEntry : INotifyPropertyChanged
     public string Status { get => status; set => Set(ref status, value); }
     public double ProgressMax { get => progressMax; set => Set(ref progressMax, value); }
     public double ProgressValue { get => progressValue; set => Set(ref progressValue, value); }
-    public bool Failed { get => failed; set => Set(ref failed, value); }
+    public bool Failed { get => failed; private set => Set(ref failed, value); }
+    public bool Succeeded { get => succeeded; private set => Set(ref succeeded, value); }
+    public bool Running { get => running; private set => Set(ref running, value); }
 
     public void Succeed(string message)
     {
         Status = message;
         ProgressValue = ProgressMax;
+        Succeeded = true;
+        Running = false;
     }
 
     public void Fail(string message)
     {
         Status = message;
         Failed = true;
+        Running = false;
     }
 
-    public void Cancel() => Status = "Cancelled";
+    public void Cancel()
+    {
+        Status = "Cancelled";
+        Running = false;
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

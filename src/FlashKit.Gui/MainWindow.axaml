@@ -14,6 +14,21 @@
     <Style Selector="TextBlock.failed">
       <Setter Property="Foreground" Value="#D9534F" />
     </Style>
+    <!-- Transaction status bubble: gray (cancelled) unless a state class
+         applies — amber while running, green/red on the outcome. The base
+         fill lives here, not inline, so the state styles can win. -->
+    <Style Selector="Ellipse.status">
+      <Setter Property="Fill" Value="#8B949E" />
+    </Style>
+    <Style Selector="Ellipse.status.running">
+      <Setter Property="Fill" Value="#D29922" />
+    </Style>
+    <Style Selector="Ellipse.status.ok">
+      <Setter Property="Fill" Value="#3FB950" />
+    </Style>
+    <Style Selector="Ellipse.status.failed">
+      <Setter Property="Fill" Value="#D9534F" />
+    </Style>
   </Window.Styles>
 
   <!-- Status bar (device + cartridge, fed by the background poller) on top;
@@ -98,6 +113,11 @@
                           BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,4,8">
                     <StackPanel Spacing="4">
                       <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Classes="status" Width="10" Height="10"
+                                 VerticalAlignment="Center"
+                                 Classes.running="{Binding Running}"
+                                 Classes.ok="{Binding Succeeded}"
+                                 Classes.failed="{Binding Failed}" />
                         <TextBlock Text="{Binding Time}" FontSize="12" Opacity="0.7"
                                    FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace"
                                    VerticalAlignment="Center" />

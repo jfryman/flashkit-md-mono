@@ -11,9 +11,10 @@ FEATURES:
    empty slot reads "No cartridge" instead of "Unknown (X) / 0K".
  * gui: the console text dump is replaced by a transaction log: every
    ROM/RAM read/write becomes a log entry with timestamp, file path, its
-   own inline progress bar, and the outcome (size, MD5, or the error) —
-   cancelled pickers are logged too. The global bottom progress bar is
-   gone.
+   own inline progress bar, a status bubble (amber running, green
+   success, red failure, gray cancelled), and the outcome (size, MD5, or
+   the error) — cancelled pickers are logged too. The global bottom
+   progress bar is gone.
 
 IMPROVEMENTS:
 

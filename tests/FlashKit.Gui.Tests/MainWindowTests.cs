@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Ellipse = Avalonia.Controls.Shapes.Ellipse;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using FlashKit.Core;
 using FlashKit.Core.Tests;
@@ -110,7 +112,9 @@ public class MainWindowTests : IDisposable
         Assert.Equal("Read ROM", entry.Title);
         Assert.Equal(file, entry.Detail);
         Assert.StartsWith("OK — 512K, MD5 ", entry.Status);
+        Assert.True(entry.Succeeded);
         Assert.False(entry.Failed);
+        Assert.False(entry.Running);
         Assert.Equal(entry.ProgressMax, entry.ProgressValue);
 
         // Force a layout pass so the log row's DataTemplate instantiates —
@@ -123,6 +127,8 @@ public class MainWindowTests : IDisposable
         Assert.Equal(entry.ProgressValue, bar.Value);
         Assert.Contains(list.GetVisualDescendants().OfType<TextBlock>(),
             t => t.Text == entry.Status);
+        var bubble = list.GetVisualDescendants().OfType<Ellipse>().Single();
+        Assert.Equal(Color.Parse("#3FB950"), ((ISolidColorBrush)bubble.Fill!).Color);
     }
 
     [AvaloniaFact]
@@ -153,6 +159,8 @@ public class MainWindowTests : IDisposable
         var entry = Assert.Single(window.Log);
         Assert.Equal("Cancelled", entry.Status);
         Assert.False(entry.Failed);
+        Assert.False(entry.Succeeded);
+        Assert.False(entry.Running);
         Assert.True(Btn(window, "BtnReadRom").IsEnabled);
     }
 
@@ -198,6 +206,8 @@ public class MainWindowTests : IDisposable
 
         var entry = Assert.Single(window.Log);
         Assert.True(entry.Failed);
+        Assert.False(entry.Succeeded);
+        Assert.False(entry.Running);
         Assert.Contains("No flash chip detected", entry.Status);
         Assert.True(Btn(window, "BtnWriteRom").IsEnabled);
     }
