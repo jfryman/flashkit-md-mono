@@ -254,3 +254,11 @@ Notes / discrepancies:
   console byte fidelity end to end. Saves are a read-only snapshot on
   this SRAM-less cart: the game's plain writes to the save window carry
   no flash command sequence, so nothing persists across power cycles.
+
+## Platform validation (2026-07-18, v1.5.3)
+
+- Flatpak `flashkit-md-v1.5.3-aarch64.flatpak` installs and runs on Asahi
+  Fedora Linux (Apple Silicon, aarch64, Wayland via XWayland). Confirms
+  the unconditional `--socket=x11` grant and the native arm64 CI build.
+  (v1.5.2's `fallback-x11` bundle failed there with "XOpenDisplay
+  failed".)
