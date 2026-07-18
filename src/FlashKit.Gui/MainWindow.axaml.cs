@@ -251,7 +251,6 @@ public partial class MainWindow : Window
         return accepted;
     }
 
-    void OnRefresh(object? sender, RoutedEventArgs e) => _ = RefreshAsync();
     void OnReadRom(object? sender, RoutedEventArgs e) => _ = ReadRomAsync();
     void OnWriteRom(object? sender, RoutedEventArgs e) => _ = WriteRomAsync();
     void OnReadRam(object? sender, RoutedEventArgs e) => _ = ReadRamAsync();
@@ -365,7 +364,7 @@ public partial class MainWindow : Window
 
     void SetBusy(bool busy)
     {
-        foreach (var btn in new[] { BtnReadRom, BtnWriteRom, BtnReadRam, BtnWriteRam, BtnRefresh })
+        foreach (var btn in new[] { BtnReadRom, BtnWriteRom, BtnReadRam, BtnWriteRam })
             btn.IsEnabled = !busy;
     }
 

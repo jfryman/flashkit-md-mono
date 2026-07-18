@@ -7,8 +7,9 @@ FEATURES:
  * gui: the window now tracks device and cartridge state live — a status
    bar shows whether the programmer is detected (and on which port) and
    whether a cartridge is seated, and cart details (name, ROM/RAM/header
-   sizes) auto-refresh every 2 seconds into a structured info panel. An
-   empty slot reads "No cartridge" instead of "Unknown (X) / 0K".
+   sizes) auto-refresh every 2 seconds into a structured info panel, so
+   the manual "Cart info" button is gone. An empty slot reads
+   "No cartridge" instead of "Unknown (X) / 0K".
  * gui: auto-dump — tick "Dump ROM" (and optionally "Dump RAM") and pick
    a folder, and every newly inserted cartridge is dumped there
    automatically, named after the cart header. Existing files are never

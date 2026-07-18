@@ -4,8 +4,8 @@
         x:Class="FlashKit.Gui.MainWindow"
         Title="Flashkit-md"
         Icon="/Assets/flashkit.ico"
-        Width="820" Height="720"
-        MinWidth="700" MinHeight="660">
+        Width="820" Height="680"
+        MinWidth="700" MinHeight="610">
 
   <Window.Styles>
     <Style Selector="TextBlock.label">
@@ -104,10 +104,6 @@
                      Opacity="0.7" TextTrimming="CharacterEllipsis" />
         </StackPanel>
       </Border>
-
-      <Button x:Name="BtnRefresh" Content="Refresh cart info" Height="40"
-              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-              Click="OnRefresh" />
     </StackPanel>
 
     <Grid Grid.Row="0" Grid.Column="2" RowDefinitions="Auto,12,*">

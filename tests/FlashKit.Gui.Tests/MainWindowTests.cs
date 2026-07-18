@@ -408,11 +408,11 @@ public class MainWindowTests : IDisposable
         window.PickSavePath = (_, _) => Task.FromResult<string?>(TempFile("dump.bin"));
 
         var running = window.ReadRomAsync();
-        foreach (var name in new[] { "BtnReadRom", "BtnWriteRom", "BtnReadRam", "BtnWriteRam", "BtnRefresh" })
+        foreach (var name in new[] { "BtnReadRom", "BtnWriteRom", "BtnReadRam", "BtnWriteRam" })
             Assert.False(Btn(window, name).IsEnabled);
 
         await running;
-        foreach (var name in new[] { "BtnReadRom", "BtnWriteRom", "BtnReadRam", "BtnWriteRam", "BtnRefresh" })
+        foreach (var name in new[] { "BtnReadRom", "BtnWriteRom", "BtnReadRam", "BtnWriteRam" })
             Assert.True(Btn(window, name).IsEnabled);
     }
 }
