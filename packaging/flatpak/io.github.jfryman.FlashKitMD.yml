@@ -18,8 +18,11 @@ sdk: org.freedesktop.Sdk
 command: flashkit-md-gui
 finish-args:
   - --share=ipc
-  - --socket=fallback-x11
-  - --socket=wayland
+  # Avalonia has no Wayland backend — it is X11-only and runs under
+  # XWayland on Wayland desktops. fallback-x11 would hide the X11 socket
+  # whenever Wayland is present (XOpenDisplay then fails), so grant X11
+  # unconditionally and no wayland socket.
+  - --socket=x11
   - --device=dri
   # The programmer is a USB serial adapter (/dev/ttyUSB*, /dev/ttyACM*);
   # there is no portal for serial devices, so full device access it is.

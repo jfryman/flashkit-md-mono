@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+BUG FIXES:
+
+ * release: the Flatpak failed to start on Wayland desktops
+   ("XOpenDisplay failed"): the sandbox granted X11 only as a fallback
+   when Wayland was absent, but Avalonia is X11-only and needs XWayland.
+   The manifest now grants the X11 socket unconditionally.
+
 ## 1.5.2 (July 18, 2026)
 
 FEATURES:
