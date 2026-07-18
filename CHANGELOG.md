@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+IMPROVEMENTS:
+
+ * release: the Flatpak now installs on the conventional `stable` branch
+   instead of flatpak-builder's default `master`, so `flatpak update`
+   tracks future releases; the version itself is reported by the
+   AppStream metadata (`flatpak info`).
+
 BUG FIXES:
 
  * release: the Flatpak failed to start on Wayland desktops

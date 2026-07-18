@@ -166,9 +166,9 @@ jobs:
           flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
       - name: Build Flatpak bundle
         run: |
-          flatpak-builder --user --force-clean --repo=flatpak-repo flatpak-build \
+          flatpak-builder --user --force-clean --default-branch=stable --repo=flatpak-repo flatpak-build \
             packaging/flatpak/io.github.jfryman.FlashKitMD.yml
-          flatpak build-bundle flatpak-repo "flashkit-md-$GITHUB_REF_NAME-${{ matrix.arch }}.flatpak" io.github.jfryman.FlashKitMD
+          flatpak build-bundle flatpak-repo "flashkit-md-$GITHUB_REF_NAME-${{ matrix.arch }}.flatpak" io.github.jfryman.FlashKitMD stable
       - name: Upload bundle to release and update SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
