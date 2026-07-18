@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+IMPROVEMENTS:
+
+ * release: Flatpak assets are named by RID like every other Linux asset
+   (`flashkit-md-vX.Y.Z-linux-{x64,arm64}.flatpak` instead of
+   `-{x86_64,aarch64}.flatpak`), so they sort next to the tarballs on the
+   release page.
+
 ## 1.5.3 (July 18, 2026)
 
 IMPROVEMENTS:

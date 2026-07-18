@@ -168,11 +168,11 @@ jobs:
         run: |
           flatpak-builder --user --force-clean --default-branch=stable --repo=flatpak-repo flatpak-build \
             packaging/flatpak/io.github.jfryman.FlashKitMD.yml
-          flatpak build-bundle flatpak-repo "flashkit-md-$GITHUB_REF_NAME-${{ matrix.arch }}.flatpak" io.github.jfryman.FlashKitMD stable
+          flatpak build-bundle flatpak-repo "flashkit-md-$GITHUB_REF_NAME-${{ matrix.rid }}.flatpak" io.github.jfryman.FlashKitMD stable
       - name: Upload bundle to release and update SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download "$GITHUB_REF_NAME" -p SHA256SUMS -O SHA256SUMS
-          shasum -a 256 "flashkit-md-$GITHUB_REF_NAME-${{ matrix.arch }}.flatpak" >> SHA256SUMS
-          gh release upload "$GITHUB_REF_NAME" "flashkit-md-$GITHUB_REF_NAME-${{ matrix.arch }}.flatpak" SHA256SUMS --clobber
+          shasum -a 256 "flashkit-md-$GITHUB_REF_NAME-${{ matrix.rid }}.flatpak" >> SHA256SUMS
+          gh release upload "$GITHUB_REF_NAME" "flashkit-md-$GITHUB_REF_NAME-${{ matrix.rid }}.flatpak" SHA256SUMS --clobber

@@ -57,7 +57,7 @@ certificate ever moves to one.
 ## Flatpak
 
 The `flatpak` job needs no secrets: it builds
-`flashkit-md-vX.Y.Z-{x86_64,aarch64}.flatpak` from
+`flashkit-md-vX.Y.Z-linux-{x64,arm64}.flatpak` from
 `packaging/flatpak/io.github.jfryman.FlashKitMD.yml` after the release is
 created (aarch64 natively on GitHub's arm64 runners), uploads them, and
 appends their checksums to `SHA256SUMS`. The same

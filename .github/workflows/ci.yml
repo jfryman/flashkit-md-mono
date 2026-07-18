@@ -77,8 +77,8 @@ jobs:
         run: |
           flatpak-builder --user --force-clean --default-branch=stable --repo=flatpak-repo flatpak-build \
             packaging/flatpak/io.github.jfryman.FlashKitMD.yml
-          flatpak build-bundle flatpak-repo "flashkit-md-${{ matrix.arch }}.flatpak" io.github.jfryman.FlashKitMD stable
+          flatpak build-bundle flatpak-repo "flashkit-md-${{ matrix.rid }}.flatpak" io.github.jfryman.FlashKitMD stable
       - uses: actions/upload-artifact@v4
         with:
-          name: flashkit-md-flatpak-${{ matrix.arch }}
-          path: flashkit-md-${{ matrix.arch }}.flatpak
+          name: flashkit-md-flatpak-${{ matrix.rid }}
+          path: flashkit-md-${{ matrix.rid }}.flatpak

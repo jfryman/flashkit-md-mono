@@ -40,11 +40,11 @@ bare GUI binary; the same quarantine note applies
 
 ### Linux
 
-**Flatpak** (x86_64, aarch64): download
-`flashkit-md-vX.Y.Z-{x86_64,aarch64}.flatpak` for your architecture and
+**Flatpak** (x86_64, arm64): download
+`flashkit-md-vX.Y.Z-linux-{x64,arm64}.flatpak` for your architecture and
 
 ```
-flatpak install ./flashkit-md-vX.Y.Z-x86_64.flatpak
+flatpak install ./flashkit-md-vX.Y.Z-linux-x64.flatpak
 flatpak run io.github.jfryman.FlashKitMD
 ```
 
