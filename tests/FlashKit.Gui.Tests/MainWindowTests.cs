@@ -331,6 +331,77 @@ public class MainWindowTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task auto_write_flashes_newly_inserted_cart_once()
+    {
+        var image = TestRoms.MakeRom(0x20000, name: "NEW GAME");
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)) { FlashWritable = true, CartInserted = false };
+        var window = Window(fake);
+        string file = TempFile("image.bin");
+        File.WriteAllBytes(file, image);
+        window.ConfirmAutoWrite = () => Task.FromResult(true);
+        window.PickOpenPath = _ => Task.FromResult<string?>(file);
+        window.FindControl<CheckBox>("ChkAutoWrite")!.IsChecked = true;
+
+        await window.RefreshAsync();
+        Assert.Empty(window.Log); // no cart yet
+
+        fake.CartInserted = true;
+        await window.RefreshAsync();
+
+        var entry = Assert.Single(window.Log);
+        Assert.Equal("Auto-write ROM", entry.Title);
+        Assert.True(entry.Succeeded);
+        Assert.Equal(image, fake.Rom.Take(image.Length));
+
+        // The write changed the cart's contents; the cart must still count
+        // as processed or auto-write would re-fire in an erase loop.
+        await window.RefreshAsync();
+        Assert.Single(window.Log);
+    }
+
+    [AvaloniaFact]
+    public async Task declined_warning_keeps_auto_write_off()
+    {
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)) { FlashWritable = true };
+        var window = Window(fake);
+        window.ConfirmAutoWrite = () => Task.FromResult(false);
+        window.PickOpenPath = _ => Task.FromResult<string?>(TempFile("image.bin"));
+        var box = window.FindControl<CheckBox>("ChkAutoWrite")!;
+
+        box.IsChecked = true;
+
+        Assert.False(box.IsChecked);
+        await window.RefreshAsync();
+        Assert.Empty(window.Log);
+    }
+
+    [AvaloniaFact]
+    public void auto_dump_and_auto_write_are_mutually_exclusive()
+    {
+        var window = Window(new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)));
+        window.PickFolder = () => Task.FromResult<string?>(dir);
+        window.ConfirmAutoWrite = () => Task.FromResult(true);
+        window.PickOpenPath = _ => Task.FromResult<string?>(TempFile("image.bin"));
+        var dumpRom = window.FindControl<CheckBox>("ChkAutoRom")!;
+        var dumpRam = window.FindControl<CheckBox>("ChkAutoRam")!;
+        var write = window.FindControl<CheckBox>("ChkAutoWrite")!;
+
+        dumpRom.IsChecked = true;
+        Assert.False(write.IsEnabled);
+
+        dumpRom.IsChecked = false;
+        Assert.True(write.IsEnabled);
+
+        write.IsChecked = true;
+        Assert.False(dumpRom.IsEnabled);
+        Assert.False(dumpRam.IsEnabled);
+
+        write.IsChecked = false;
+        Assert.True(dumpRom.IsEnabled);
+        Assert.True(dumpRam.IsEnabled);
+    }
+
+    [AvaloniaFact]
     public async Task buttons_are_disabled_while_an_operation_runs()
     {
         var window = Window(new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)));

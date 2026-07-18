@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Security.Cryptography;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -37,12 +39,16 @@ public partial class MainWindow : Window
     readonly SemaphoreSlim deviceGate = new(1, 1);
     FlashKitSession? session;
 
-    // Auto-dump: fires when the poller sees a cart it hasn't dumped yet.
-    // The identity re-arms on cart removal or checkbox toggle, so swapping
-    // carts (or reseating one) triggers a fresh dump; a failed dump is not
-    // retried every poll.
+    // Auto actions fire on cart insertion (the poll transition from no cart
+    // to cart). Deliberately NOT keyed on cart identity: auto-write changes
+    // the cart's contents, so identity-keying would see the just-written
+    // cart as new and re-write it in a loop. cartProcessed clears on
+    // removal, device loss, or any auto-setting change, so the seated cart
+    // then counts as newly inserted; a failed action is not retried every
+    // poll. Auto-dump and auto-write are mutually exclusive in the UI.
     string? autoDumpFolder;
-    (string Name, int RomBytes, int RamBytes)? autoDumpedCart;
+    string? autoWriteFile;
+    bool cartProcessed;
 
     internal ObservableCollection<TransactionEntry> Log { get; } = new();
 
@@ -52,6 +58,7 @@ public partial class MainWindow : Window
     internal Func<string, FilePickerFileType, Task<string?>> PickSavePath;
     internal Func<FilePickerFileType, Task<string?>> PickOpenPath;
     internal Func<Task<string?>> PickFolder;
+    internal Func<Task<bool>> ConfirmAutoWrite;
 
     public MainWindow() : this(null)
     {
@@ -70,6 +77,7 @@ public partial class MainWindow : Window
         PickSavePath = DefaultPickSavePath;
         PickOpenPath = DefaultPickOpenPath;
         PickFolder = DefaultPickFolder;
+        ConfirmAutoWrite = DefaultConfirmAutoWrite;
         Closed += (_, _) => DisposeSession();
     }
 
@@ -111,12 +119,14 @@ public partial class MainWindow : Window
         return folders.Count == 1 ? folders[0].TryGetLocalPath() : null;
     }
 
-    /// <summary>Checking a box re-arms auto-dump (so the current cart gets
-    /// dumped on the next poll) and prompts for a folder if none is chosen
-    /// yet — cancelling the prompt unchecks the box again.</summary>
+    /// <summary>Checking a box re-arms the auto actions (so the currently
+    /// seated cart counts as newly inserted on the next poll) and prompts
+    /// for a folder if none is chosen yet — cancelling the prompt unchecks
+    /// the box again.</summary>
     async void OnAutoDumpToggled(object? sender, RoutedEventArgs e)
     {
-        autoDumpedCart = null;
+        cartProcessed = false;
+        UpdateAutoExclusivity();
         if (sender is CheckBox { IsChecked: true } box && autoDumpFolder == null)
         {
             autoDumpFolder = await PickFolder();
@@ -130,11 +140,116 @@ public partial class MainWindow : Window
         if (await PickFolder() is not string folder) return;
         autoDumpFolder = folder;
         AutoDumpFolderText.Text = folder;
-        autoDumpedCart = null;
+        cartProcessed = false;
+    }
+
+    /// <summary>Checking "Write ROM" first requires the destructive-action
+    /// warning to be acknowledged (unless suppressed), then a ROM file if
+    /// none is chosen — declining either unchecks the box.</summary>
+    async void OnAutoWriteToggled(object? sender, RoutedEventArgs e)
+    {
+        cartProcessed = false;
+        UpdateAutoExclusivity();
+        if (sender is not CheckBox { IsChecked: true } box) return;
+        if (!await ConfirmAutoWrite())
+        {
+            box.IsChecked = false;
+            return;
+        }
+        if (autoWriteFile == null)
+        {
+            autoWriteFile = await PickOpenPath(RomFiles);
+            AutoWriteFileText.Text = autoWriteFile is string f ? Path.GetFileName(f) : "No file chosen";
+            if (autoWriteFile == null) box.IsChecked = false;
+        }
+    }
+
+    async void OnChooseWriteFile(object? sender, RoutedEventArgs e)
+    {
+        if (await PickOpenPath(RomFiles) is not string file) return;
+        autoWriteFile = file;
+        AutoWriteFileText.Text = Path.GetFileName(file);
+        cartProcessed = false;
+    }
+
+    /// <summary>Auto-dump and auto-write must not run together (dumping a
+    /// cart that is about to be erased, or writing one being archived, is
+    /// never what the user meant): whichever side is checked disables the
+    /// other side's checkboxes.</summary>
+    void UpdateAutoExclusivity()
+    {
+        bool dumpOn = ChkAutoRom.IsChecked == true || ChkAutoRam.IsChecked == true;
+        bool writeOn = ChkAutoWrite.IsChecked == true;
+        ChkAutoWrite.IsEnabled = !dumpOn;
+        ChkAutoRom.IsEnabled = !writeOn;
+        ChkAutoRam.IsEnabled = !writeOn;
     }
 
     bool AutoDumpEnabled =>
         autoDumpFolder != null && (ChkAutoRom.IsChecked == true || ChkAutoRam.IsChecked == true);
+
+    bool AutoWriteEnabled => autoWriteFile != null && ChkAutoWrite.IsChecked == true;
+
+    static string SuppressAutoWriteWarningPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "flashkit-md", "suppress-auto-write-warning");
+
+    async Task<bool> DefaultConfirmAutoWrite()
+    {
+        if (File.Exists(SuppressAutoWriteWarningPath)) return true;
+
+        var dontShow = new CheckBox { Content = "Don't show this warning again" };
+        var enable = new Button { Content = "Enable auto-write" };
+        var cancel = new Button { Content = "Cancel", IsCancel = true };
+        var dialog = new Window
+        {
+            Title = "Enable auto-write?",
+            Width = 480,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(16),
+                Spacing = 12,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        TextWrapping = TextWrapping.Wrap,
+                        Text = "Auto-write ERASES and reprograms every flash cartridge "
+                             + "inserted while it is enabled, without asking again.\n\n"
+                             + "Cartridges without a writable flash chip (retail game "
+                             + "carts) are detected and skipped, but the contents of any "
+                             + "flash cart you insert will be destroyed and replaced "
+                             + "with the chosen file.",
+                    },
+                    dontShow,
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Spacing = 8,
+                        Children = { cancel, enable },
+                    },
+                },
+            },
+        };
+        enable.Click += (_, _) => dialog.Close(true);
+        cancel.Click += (_, _) => dialog.Close(false);
+
+        bool accepted = await dialog.ShowDialog<bool>(this);
+        if (accepted && dontShow.IsChecked == true)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(SuppressAutoWriteWarningPath)!);
+                File.WriteAllText(SuppressAutoWriteWarningPath, "");
+            }
+            catch (Exception) { }
+        }
+        return accepted;
+    }
 
     void OnRefresh(object? sender, RoutedEventArgs e) => _ = RefreshAsync();
     void OnReadRom(object? sender, RoutedEventArgs e) => _ = ReadRomAsync();
@@ -148,7 +263,7 @@ public partial class MainWindow : Window
     internal async Task RefreshAsync()
     {
         if (!await deviceGate.WaitAsync(0)) return;
-        CartInfo? cartToDump = null;
+        CartInfo? insertedCart = null;
         try
         {
             var (port, info) = await Task.Run(() =>
@@ -160,23 +275,19 @@ public partial class MainWindow : Window
             ShowCartState(info);
             if (!info.CartDetected)
             {
-                autoDumpedCart = null;
+                cartProcessed = false;
             }
-            else
+            else if (!cartProcessed)
             {
-                var identity = (info.RomName, info.RomBytes, info.RamBytes);
-                if (AutoDumpEnabled && autoDumpedCart != identity)
-                {
-                    autoDumpedCart = identity;
-                    cartToDump = info;
-                }
+                cartProcessed = true;
+                if (AutoDumpEnabled || AutoWriteEnabled) insertedCart = info;
             }
         }
         catch (DeviceNotFoundException)
         {
             ShowDeviceState(null);
             ShowCartState(null);
-            autoDumpedCart = null;
+            cartProcessed = false;
         }
         catch (Exception)
         {
@@ -185,24 +296,30 @@ public partial class MainWindow : Window
             await Task.Run(DisposeSession);
             ShowDeviceState(null);
             ShowCartState(null);
-            autoDumpedCart = null;
+            cartProcessed = false;
         }
         finally
         {
             deviceGate.Release();
         }
-        // Outside the gate: the dumps take it themselves via RunOperation.
-        if (cartToDump != null) await AutoDumpAsync(cartToDump);
+        // Outside the gate: the operations take it themselves via RunOperation.
+        if (insertedCart != null) await AutoProcessAsync(insertedCart);
     }
 
-    async Task AutoDumpAsync(CartInfo info)
+    async Task AutoProcessAsync(CartInfo info)
     {
-        if (autoDumpFolder is not string folder) return;
-        string name = DisplayName(info.RomName);
-        if (ChkAutoRom.IsChecked == true)
-            await RunOperation("Auto-dump ROM", (s, entry) => DumpRomTo(s, entry, UniquePath(folder, name + ".bin")));
-        if (ChkAutoRam.IsChecked == true && info.RamBytes > 0)
-            await RunOperation("Auto-dump RAM", (s, entry) => DumpRamTo(s, entry, UniquePath(folder, name + ".srm")));
+        if (AutoDumpEnabled && autoDumpFolder is string folder)
+        {
+            string name = DisplayName(info.RomName);
+            if (ChkAutoRom.IsChecked == true)
+                await RunOperation("Auto-dump ROM", (s, entry) => DumpRomTo(s, entry, UniquePath(folder, name + ".bin")));
+            if (ChkAutoRam.IsChecked == true && info.RamBytes > 0)
+                await RunOperation("Auto-dump RAM", (s, entry) => DumpRamTo(s, entry, UniquePath(folder, name + ".srm")));
+        }
+        if (AutoWriteEnabled && autoWriteFile is string file)
+        {
+            await RunOperation("Auto-write ROM", (s, entry) => WriteRomFrom(s, entry, file));
+        }
     }
 
     /// <summary>Never overwrite an earlier dump: append " (2)", " (3)", …
@@ -332,6 +449,11 @@ public partial class MainWindow : Window
             entry.Cancel();
             return;
         }
+        await WriteRomFrom(session, entry, path);
+    });
+
+    async Task WriteRomFrom(FlashKitSession session, TransactionEntry entry, string path)
+    {
         entry.Detail = path;
         var rom = await File.ReadAllBytesAsync(path);
         var progress = TrackProgress(entry, phase => phase switch
@@ -343,7 +465,7 @@ public partial class MainWindow : Window
         });
         await Task.Run(() => session.WriteRom(rom, progress: p => progress.Report(p)));
         entry.Succeed($"OK — {rom.Length / 1024}K written, MD5 {Md5(rom)}");
-    });
+    }
 
     internal Task ReadRamAsync() => RunOperation("Read RAM", async (session, entry) =>
     {

@@ -14,6 +14,13 @@ FEATURES:
    automatically, named after the cart header. Existing files are never
    overwritten (a " (2)" suffix is added); reinserting or swapping carts
    triggers a fresh dump, and RAM dumping skips carts without save RAM.
+ * gui: auto-write for development loops — tick "Write ROM", acknowledge
+   the destructive-action warning (suppressible via "Don't show this
+   warning again"), pick an image, and every flash cartridge inserted
+   while enabled is erased and reprogrammed with it. Retail (mask ROM)
+   carts are detected and skipped by the flash-chip check. Auto-write
+   and auto-dump are mutually exclusive; enabling one disables the
+   other's checkboxes.
  * gui: the console text dump is replaced by a transaction log: every
    ROM/RAM read/write becomes a log entry with timestamp, file path, its
    own inline progress bar, a status bubble (amber running, green
