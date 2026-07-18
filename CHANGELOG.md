@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.4 (July 18, 2026)
 
 IMPROVEMENTS:
 
