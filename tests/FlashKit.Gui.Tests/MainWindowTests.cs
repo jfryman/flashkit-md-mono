@@ -54,7 +54,7 @@ public class MainWindowTests : IDisposable
         await window.RefreshAsync();
 
         Assert.Equal("Programmer connected on FAKE", Text(window, "DeviceStatusText"));
-        Assert.Equal("TEST GAME (U)", Text(window, "CartStatusText"));
+        Assert.Equal("Cartridge inserted", Text(window, "CartStatusText"));
         Assert.Equal("TEST GAME (U)", Text(window, "InfoName"));
         Assert.Equal("512K", Text(window, "InfoRomSize"));
         Assert.Equal("8K", Text(window, "InfoRamSize"));
@@ -75,8 +75,48 @@ public class MainWindowTests : IDisposable
 
         fake.CartInserted = true;
         await window.RefreshAsync();
-        Assert.Equal("TEST GAME (U)", Text(window, "CartStatusText"));
+        Assert.Equal("Cartridge inserted", Text(window, "CartStatusText"));
+        Assert.Equal("TEST GAME (U)", Text(window, "InfoName"));
         Assert.Equal("512K", Text(window, "InfoRomSize"));
+    }
+
+    [AvaloniaFact]
+    public async Task session_is_held_across_polls_and_operations()
+    {
+        // Regression guard for the macOS FTDI wedge: closing the port after
+        // a flash write can hang and leave the descriptor abandoned in this
+        // long-lived process, so the GUI must reuse one session instead of
+        // reconnecting per poll/operation.
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000));
+        var window = Window(fake);
+        window.PickSavePath = (_, _) => Task.FromResult<string?>(TempFile("dump.bin"));
+
+        await window.RefreshAsync();
+        await window.RefreshAsync();
+        await window.ReadRomAsync();
+        await window.RefreshAsync();
+
+        Assert.Equal(1, fake.OpenCount);
+    }
+
+    [AvaloniaFact]
+    public async Task unplugged_programmer_is_reported_and_reconnected()
+    {
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000));
+        var window = Window(fake);
+
+        await window.RefreshAsync();
+        Assert.Equal("Programmer connected on FAKE", Text(window, "DeviceStatusText"));
+
+        fake.Disconnected = true;
+        await window.RefreshAsync();
+        Assert.Equal("No programmer detected", Text(window, "DeviceStatusText"));
+        Assert.Equal("—", Text(window, "CartStatusText"));
+
+        fake.Disconnected = false;
+        await window.RefreshAsync();
+        Assert.Equal("Programmer connected on FAKE", Text(window, "DeviceStatusText"));
+        Assert.Equal(2, fake.OpenCount);
     }
 
     [AvaloniaFact]

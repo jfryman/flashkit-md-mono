@@ -31,12 +31,12 @@
     </Style>
   </Window.Styles>
 
-  <!-- Status bar (device + cartridge, fed by the background poller) on top;
-       ROM/RAM button groups on the left; cart info panel and per-operation
-       transaction log on the right. -->
-  <Grid Margin="12" ColumnDefinitions="220,12,*" RowDefinitions="Auto,12,*">
+  <!-- ROM/RAM button groups on the left; cart info panel and per-operation
+       transaction log on the right; status bar (device + cartridge, fed by
+       the background poller) along the bottom. -->
+  <Grid Margin="12" ColumnDefinitions="220,12,*" RowDefinitions="*,12,Auto">
 
-    <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+    <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
             BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
             BorderThickness="1" CornerRadius="4" Padding="10,8">
       <StackPanel Orientation="Horizontal" Spacing="24">
@@ -51,7 +51,7 @@
       </StackPanel>
     </Border>
 
-    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="12">
+    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="12">
       <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
               BorderThickness="1" CornerRadius="4" Padding="8">
         <StackPanel Spacing="8">
@@ -83,7 +83,7 @@
               Click="OnRefresh" />
     </StackPanel>
 
-    <Grid Grid.Row="2" Grid.Column="2" RowDefinitions="Auto,12,*">
+    <Grid Grid.Row="0" Grid.Column="2" RowDefinitions="Auto,12,*">
 
       <Border Grid.Row="0"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"

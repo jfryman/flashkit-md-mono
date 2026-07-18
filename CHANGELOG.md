@@ -18,11 +18,26 @@ FEATURES:
 
 IMPROVEMENTS:
 
+ * gui: the status bar now sits along the bottom of the window and reports
+   cartridge presence ("Cartridge inserted" / "No cartridge") instead of
+   repeating the cart name shown in the info panel.
  * cli, gui: suggested filenames for read-rom/read-ram no longer carry the
    ROM header's internal space padding — runs of spaces collapse to one
    (Sonic 3 now suggests "SONIC THE HEDGEHOG 3 (U).bin" instead of
    "SONIC THE               HEDGEHOG 3 (U).bin"). The cart-info display
    still shows the header name verbatim.
+
+BUG FIXES:
+
+ * gui: on macOS the programmer appeared permanently disconnected after
+   writing a ROM, until the adapter was physically replugged. Closing the
+   port after a multi-MB flash write wedges in the FTDI driver's drain;
+   the guarded close abandons it, which is fine for the CLI (process exit
+   reclaims the descriptor) but left the long-lived GUI process holding
+   the port, so every reconnect failed. The GUI now keeps one session
+   open for as long as the programmer is reachable instead of
+   reconnecting per operation, deferring the close to window close or
+   device loss.
 
 ## 1.4.1 (July 17, 2026)
 

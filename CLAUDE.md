@@ -80,6 +80,10 @@ tcdrain, which wedged forever after write-rom's multi-MB writes, hanging
 the process with the port held. SystemSerialPort now discards the output
 queue and abandons a stuck close (guarded-close, covered by
 SystemSerialPortTests) — keep that behavior if the adapter is touched.
+Corollary: an abandoned close only frees the descriptor at process exit,
+so long-lived front-ends must not close per operation — the GUI holds one
+session while the programmer is reachable (closing after write-rom left
+the port unopenable until the adapter was replugged).
 
 ## Domain gotchas
 

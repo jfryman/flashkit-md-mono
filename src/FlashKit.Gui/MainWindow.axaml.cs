@@ -17,6 +17,14 @@ namespace FlashKit.Gui;
 /// drive <see cref="RefreshAsync"/> directly — no timing in CI). The serial
 /// port is exclusive, so the poller and operations serialize on
 /// <see cref="deviceGate"/>; operations run on a worker thread.
+///
+/// One session is held for as long as the programmer stays reachable,
+/// NOT one per operation like the original client: on macOS, closing the
+/// port after a multi-MB flash write wedges in tcdrain and the guarded
+/// close abandons it (see SystemSerialPort). In this long-lived process an
+/// abandoned close keeps the descriptor held, making the port unopenable
+/// until the adapter is replugged — so the close is deferred to window
+/// close / device loss, where it is harmless.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -27,6 +35,7 @@ public partial class MainWindow : Window
 
     readonly DeviceConnector? connector;
     readonly SemaphoreSlim deviceGate = new(1, 1);
+    FlashKitSession? session;
 
     internal ObservableCollection<TransactionEntry> Log { get; } = new();
 
@@ -52,6 +61,17 @@ public partial class MainWindow : Window
         LogList.ItemsSource = Log;
         PickSavePath = DefaultPickSavePath;
         PickOpenPath = DefaultPickOpenPath;
+        Closed += (_, _) => DisposeSession();
+    }
+
+    FlashKitSession EnsureSession() => session ??= FlashKitSession.Connect(connector);
+
+    void DisposeSession()
+    {
+        var s = session;
+        session = null;
+        try { s?.Dispose(); }
+        catch (Exception) { }
     }
 
     async Task<string?> DefaultPickSavePath(string suggestedName, FilePickerFileType type)
@@ -79,9 +99,9 @@ public partial class MainWindow : Window
     void OnReadRam(object? sender, RoutedEventArgs e) => _ = ReadRamAsync();
     void OnWriteRam(object? sender, RoutedEventArgs e) => _ = WriteRamAsync();
 
-    /// <summary>One poll: connect, read cart info, disconnect, update the
-    /// status bar and info panel. Skips silently when an operation (or a
-    /// previous poll) holds the device.</summary>
+    /// <summary>One poll: connect if needed, read cart info on the held
+    /// session, update the status bar and info panel. Skips silently when an
+    /// operation (or a previous poll) holds the device.</summary>
     internal async Task RefreshAsync()
     {
         if (!await deviceGate.WaitAsync(0)) return;
@@ -89,8 +109,8 @@ public partial class MainWindow : Window
         {
             var (port, info) = await Task.Run(() =>
             {
-                using var session = FlashKitSession.Connect(connector);
-                return (session.PortName, session.GetInfo());
+                var s = EnsureSession();
+                return (s.PortName, s.GetInfo());
             });
             ShowDeviceState(port);
             ShowCartState(info);
@@ -102,9 +122,10 @@ public partial class MainWindow : Window
         }
         catch (Exception)
         {
-            // Transient failure mid-poll (e.g. cable pulled between the
-            // handshake and the info read): keep the last device state but
-            // stop claiming to know what cart is in.
+            // The held session died mid-poll (cable pulled): drop it and
+            // report the device gone; the next poll reconnects if it's back.
+            await Task.Run(DisposeSession);
+            ShowDeviceState(null);
             ShowCartState(null);
         }
         finally
@@ -125,7 +146,7 @@ public partial class MainWindow : Window
     {
         bool present = info?.CartDetected == true;
         CartDot.Fill = present ? PresentBrush : AbsentBrush;
-        CartStatusText.Text = present ? DisplayName(info!.RomName)
+        CartStatusText.Text = present ? "Cartridge inserted"
             : info != null ? "No cartridge" : "—";
         InfoName.Text = present ? DisplayName(info!.RomName) : "—";
         InfoRomSize.Text = present ? FormatKb(info!.RomBytes) : "—";
@@ -148,11 +169,13 @@ public partial class MainWindow : Window
             btn.IsEnabled = !busy;
     }
 
-    /// <summary>Runs one cart operation as a transaction-log entry: connect,
-    /// run <paramref name="body"/>, report any failure on the entry, always
-    /// disconnect — the original's per-click try/catch/disconnect shape.
-    /// Waits out an in-flight poll before touching the port; Connect and
-    /// Dispose run off the UI thread (Dispose can stall in the guarded
+    /// <summary>Runs one cart operation as a transaction-log entry on the
+    /// held session (connecting first if needed) and reports any failure on
+    /// the entry. The session stays open afterwards — no per-operation close
+    /// (see the class comment) — unless the failure looks like a dead serial
+    /// link, in which case it is dropped for the poller to re-establish.
+    /// Waits out an in-flight poll before touching the port; connecting and
+    /// disposing run off the UI thread (a dispose can stall in the guarded
     /// serial close).</summary>
     async Task RunOperation(string title, Func<FlashKitSession, TransactionEntry, Task> body)
     {
@@ -160,20 +183,20 @@ public partial class MainWindow : Window
         Log.Insert(0, entry);
         SetBusy(true);
         await deviceGate.WaitAsync();
-        FlashKitSession? session = null;
         try
         {
             entry.Status = "Connecting...";
-            session = await Task.Run(() => FlashKitSession.Connect(connector));
-            await body(session, entry);
+            var s = await Task.Run(EnsureSession);
+            await body(s, entry);
         }
         catch (Exception x)
         {
             entry.Fail(x.Message);
+            if (x is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+                await Task.Run(DisposeSession);
         }
         finally
         {
-            if (session != null) await Task.Run(session.Dispose);
             deviceGate.Release();
             SetBusy(false);
         }

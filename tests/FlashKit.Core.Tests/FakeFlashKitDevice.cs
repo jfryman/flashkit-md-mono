@@ -38,6 +38,14 @@ sealed class FakeFlashKitDevice : ISerialPort
     /// still answers the device-ID handshake. Settable mid-test to emulate
     /// inserting or removing a cartridge.</summary>
     public bool CartInserted { get; set; } = true;
+
+    /// <summary>True simulates yanking the USB cable: every serial call
+    /// (including reopening) throws IOException until cleared.</summary>
+    public bool Disconnected { get; set; }
+
+    /// <summary>How many times the port was opened — lets tests assert a
+    /// session is being held rather than reopened per operation.</summary>
+    public int OpenCount { get; private set; }
     public byte Delay { get; private set; }
 
     // firmware registers
@@ -70,16 +78,23 @@ sealed class FakeFlashKitDevice : ISerialPort
     public string PortName => "FAKE";
     public int ReadTimeout { get; set; }
     public int WriteTimeout { get; set; }
-    public void Open() { }
+    public void Open()
+    {
+        ThrowIfDisconnected();
+        OpenCount++;
+    }
+
     public void Close() { }
 
     public void Write(byte[] buffer, int offset, int count)
     {
+        ThrowIfDisconnected();
         for (int i = 0; i < count; i++) Feed(buffer[offset + i]);
     }
 
     public int Read(byte[] buffer, int offset, int count)
     {
+        ThrowIfDisconnected();
         if (output.Count == 0) throw new TimeoutException();
         int n = 0;
         while (n < count && output.Count > 0) buffer[offset + n++] = output.Dequeue();
@@ -88,8 +103,14 @@ sealed class FakeFlashKitDevice : ISerialPort
 
     public int ReadByte()
     {
+        ThrowIfDisconnected();
         if (output.Count == 0) throw new TimeoutException();
         return output.Dequeue();
+    }
+
+    void ThrowIfDisconnected()
+    {
+        if (Disconnected) throw new IOException("device disconnected");
     }
 
     void Feed(byte b)
