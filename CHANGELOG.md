@@ -9,6 +9,11 @@ FEATURES:
    whether a cartridge is seated, and cart details (name, ROM/RAM/header
    sizes) auto-refresh every 2 seconds into a structured info panel. An
    empty slot reads "No cartridge" instead of "Unknown (X) / 0K".
+ * gui: auto-dump — tick "Dump ROM" (and optionally "Dump RAM") and pick
+   a folder, and every newly inserted cartridge is dumped there
+   automatically, named after the cart header. Existing files are never
+   overwritten (a " (2)" suffix is added); reinserting or swapping carts
+   triggers a fresh dump, and RAM dumping skips carts without save RAM.
  * gui: the console text dump is replaced by a transaction log: every
    ROM/RAM read/write becomes a log entry with timestamp, file path, its
    own inline progress bar, a status bubble (amber running, green

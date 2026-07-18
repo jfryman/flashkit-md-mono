@@ -271,6 +271,66 @@ public class MainWindowTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task auto_dump_dumps_newly_inserted_cart_once()
+    {
+        var rom = TestRoms.MakeRom(0x80000);
+        var fake = new FakeFlashKitDevice(rom, sramBytes: 8192) { CartInserted = false };
+        var window = Window(fake);
+        window.PickFolder = () => Task.FromResult<string?>(dir);
+        window.FindControl<CheckBox>("ChkAutoRom")!.IsChecked = true;
+        window.FindControl<CheckBox>("ChkAutoRam")!.IsChecked = true;
+
+        await window.RefreshAsync();
+        Assert.Empty(window.Log); // no cart yet, nothing to dump
+
+        fake.CartInserted = true;
+        await window.RefreshAsync();
+
+        Assert.Equal(rom, File.ReadAllBytes(Path.Combine(dir, "TEST GAME (U).bin")));
+        Assert.Equal(16384, new FileInfo(Path.Combine(dir, "TEST GAME (U).srm")).Length);
+        Assert.Equal(2, window.Log.Count); // newest first: RAM then ROM
+        Assert.Equal("Auto-dump RAM", window.Log[0].Title);
+        Assert.Equal("Auto-dump ROM", window.Log[1].Title);
+        Assert.All(window.Log, e => Assert.True(e.Succeeded));
+
+        await window.RefreshAsync();
+        Assert.Equal(2, window.Log.Count); // same cart: no re-dump
+    }
+
+    [AvaloniaFact]
+    public async Task auto_dump_on_reinsertion_does_not_overwrite_earlier_dump()
+    {
+        var fake = new FakeFlashKitDevice(TestRoms.MakeRom(0x80000));
+        var window = Window(fake);
+        window.PickFolder = () => Task.FromResult<string?>(dir);
+        window.FindControl<CheckBox>("ChkAutoRom")!.IsChecked = true;
+
+        await window.RefreshAsync(); // cart present from the start: dumps
+        fake.CartInserted = false;
+        await window.RefreshAsync(); // removal re-arms
+        fake.CartInserted = true;
+        await window.RefreshAsync(); // reinsertion dumps again
+
+        Assert.True(File.Exists(Path.Combine(dir, "TEST GAME (U).bin")));
+        Assert.True(File.Exists(Path.Combine(dir, "TEST GAME (U) (2).bin")));
+        Assert.Equal(2, window.Log.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task cancelling_folder_picker_unchecks_auto_dump()
+    {
+        var window = Window(new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)));
+        window.PickFolder = () => Task.FromResult<string?>(null);
+        var box = window.FindControl<CheckBox>("ChkAutoRom")!;
+
+        box.IsChecked = true;
+
+        Assert.False(box.IsChecked);
+        await window.RefreshAsync();
+        Assert.Empty(window.Log);
+    }
+
+    [AvaloniaFact]
     public async Task buttons_are_disabled_while_an_operation_runs()
     {
         var window = Window(new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)));

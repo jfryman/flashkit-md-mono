@@ -4,8 +4,8 @@
         x:Class="FlashKit.Gui.MainWindow"
         Title="Flashkit-md"
         Icon="/Assets/flashkit.ico"
-        Width="820" Height="600"
-        MinWidth="700" MinHeight="480">
+        Width="820" Height="640"
+        MinWidth="700" MinHeight="560">
 
   <Window.Styles>
     <Style Selector="TextBlock.label">
@@ -75,6 +75,20 @@
           <Button x:Name="BtnWriteRam" Content="Write RAM" Height="48"
                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                   Click="OnWriteRam" />
+        </StackPanel>
+      </Border>
+
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+              BorderThickness="1" CornerRadius="4" Padding="8">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Auto-dump" FontWeight="SemiBold" />
+          <CheckBox x:Name="ChkAutoRom" Content="Dump ROM" IsCheckedChanged="OnAutoDumpToggled" />
+          <CheckBox x:Name="ChkAutoRam" Content="Dump RAM" IsCheckedChanged="OnAutoDumpToggled" />
+          <Button x:Name="BtnDumpFolder" Content="Choose folder..."
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Click="OnChooseFolder" />
+          <TextBlock x:Name="AutoDumpFolderText" Text="No folder chosen" FontSize="11"
+                     Opacity="0.7" TextTrimming="CharacterEllipsis" />
         </StackPanel>
       </Border>
 

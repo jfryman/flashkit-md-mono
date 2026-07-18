@@ -37,6 +37,13 @@ public partial class MainWindow : Window
     readonly SemaphoreSlim deviceGate = new(1, 1);
     FlashKitSession? session;
 
+    // Auto-dump: fires when the poller sees a cart it hasn't dumped yet.
+    // The identity re-arms on cart removal or checkbox toggle, so swapping
+    // carts (or reseating one) triggers a fresh dump; a failed dump is not
+    // retried every poll.
+    string? autoDumpFolder;
+    (string Name, int RomBytes, int RamBytes)? autoDumpedCart;
+
     internal ObservableCollection<TransactionEntry> Log { get; } = new();
 
     // Test seams: headless tests inject a fake-device connector and replace
@@ -44,6 +51,7 @@ public partial class MainWindow : Window
     // file). Production code uses the defaults.
     internal Func<string, FilePickerFileType, Task<string?>> PickSavePath;
     internal Func<FilePickerFileType, Task<string?>> PickOpenPath;
+    internal Func<Task<string?>> PickFolder;
 
     public MainWindow() : this(null)
     {
@@ -61,6 +69,7 @@ public partial class MainWindow : Window
         LogList.ItemsSource = Log;
         PickSavePath = DefaultPickSavePath;
         PickOpenPath = DefaultPickOpenPath;
+        PickFolder = DefaultPickFolder;
         Closed += (_, _) => DisposeSession();
     }
 
@@ -93,6 +102,40 @@ public partial class MainWindow : Window
         return files.Count == 1 ? files[0].TryGetLocalPath() : null;
     }
 
+    async Task<string?> DefaultPickFolder()
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Auto-dump folder",
+        });
+        return folders.Count == 1 ? folders[0].TryGetLocalPath() : null;
+    }
+
+    /// <summary>Checking a box re-arms auto-dump (so the current cart gets
+    /// dumped on the next poll) and prompts for a folder if none is chosen
+    /// yet — cancelling the prompt unchecks the box again.</summary>
+    async void OnAutoDumpToggled(object? sender, RoutedEventArgs e)
+    {
+        autoDumpedCart = null;
+        if (sender is CheckBox { IsChecked: true } box && autoDumpFolder == null)
+        {
+            autoDumpFolder = await PickFolder();
+            AutoDumpFolderText.Text = autoDumpFolder ?? "No folder chosen";
+            if (autoDumpFolder == null) box.IsChecked = false;
+        }
+    }
+
+    async void OnChooseFolder(object? sender, RoutedEventArgs e)
+    {
+        if (await PickFolder() is not string folder) return;
+        autoDumpFolder = folder;
+        AutoDumpFolderText.Text = folder;
+        autoDumpedCart = null;
+    }
+
+    bool AutoDumpEnabled =>
+        autoDumpFolder != null && (ChkAutoRom.IsChecked == true || ChkAutoRam.IsChecked == true);
+
     void OnRefresh(object? sender, RoutedEventArgs e) => _ = RefreshAsync();
     void OnReadRom(object? sender, RoutedEventArgs e) => _ = ReadRomAsync();
     void OnWriteRom(object? sender, RoutedEventArgs e) => _ = WriteRomAsync();
@@ -105,6 +148,7 @@ public partial class MainWindow : Window
     internal async Task RefreshAsync()
     {
         if (!await deviceGate.WaitAsync(0)) return;
+        CartInfo? cartToDump = null;
         try
         {
             var (port, info) = await Task.Run(() =>
@@ -114,11 +158,25 @@ public partial class MainWindow : Window
             });
             ShowDeviceState(port);
             ShowCartState(info);
+            if (!info.CartDetected)
+            {
+                autoDumpedCart = null;
+            }
+            else
+            {
+                var identity = (info.RomName, info.RomBytes, info.RamBytes);
+                if (AutoDumpEnabled && autoDumpedCart != identity)
+                {
+                    autoDumpedCart = identity;
+                    cartToDump = info;
+                }
+            }
         }
         catch (DeviceNotFoundException)
         {
             ShowDeviceState(null);
             ShowCartState(null);
+            autoDumpedCart = null;
         }
         catch (Exception)
         {
@@ -127,11 +185,36 @@ public partial class MainWindow : Window
             await Task.Run(DisposeSession);
             ShowDeviceState(null);
             ShowCartState(null);
+            autoDumpedCart = null;
         }
         finally
         {
             deviceGate.Release();
         }
+        // Outside the gate: the dumps take it themselves via RunOperation.
+        if (cartToDump != null) await AutoDumpAsync(cartToDump);
+    }
+
+    async Task AutoDumpAsync(CartInfo info)
+    {
+        if (autoDumpFolder is not string folder) return;
+        string name = DisplayName(info.RomName);
+        if (ChkAutoRom.IsChecked == true)
+            await RunOperation("Auto-dump ROM", (s, entry) => DumpRomTo(s, entry, UniquePath(folder, name + ".bin")));
+        if (ChkAutoRam.IsChecked == true && info.RamBytes > 0)
+            await RunOperation("Auto-dump RAM", (s, entry) => DumpRamTo(s, entry, UniquePath(folder, name + ".srm")));
+    }
+
+    /// <summary>Never overwrite an earlier dump: append " (2)", " (3)", …
+    /// until the name is free.</summary>
+    static string UniquePath(string folder, string fileName)
+    {
+        string stem = Path.GetFileNameWithoutExtension(fileName);
+        string ext = Path.GetExtension(fileName);
+        string path = Path.Combine(folder, fileName);
+        for (int n = 2; File.Exists(path); n++)
+            path = Path.Combine(folder, $"{stem} ({n}){ext}");
+        return path;
     }
 
     void ShowDeviceState(string? port)
@@ -229,13 +312,18 @@ public partial class MainWindow : Window
             entry.Cancel();
             return;
         }
+        await DumpRomTo(session, entry, path);
+    });
+
+    async Task DumpRomTo(FlashKitSession session, TransactionEntry entry, string path)
+    {
         entry.Detail = path;
         entry.Status = "Reading ROM...";
         var progress = TrackProgress(entry);
         var rom = await Task.Run(() => session.ReadRom(p => progress.Report(p)));
         await File.WriteAllBytesAsync(path, rom);
         entry.Succeed($"OK — {rom.Length / 1024}K, MD5 {Md5(rom)}");
-    });
+    }
 
     internal Task WriteRomAsync() => RunOperation("Write ROM", async (session, entry) =>
     {
@@ -265,12 +353,17 @@ public partial class MainWindow : Window
             entry.Cancel();
             return;
         }
+        await DumpRamTo(session, entry, path);
+    });
+
+    async Task DumpRamTo(FlashKitSession session, TransactionEntry entry, string path)
+    {
         entry.Detail = path;
         entry.Status = "Reading RAM...";
         var ram = await Task.Run(session.ReadRam);
         await File.WriteAllBytesAsync(path, ram);
         entry.Succeed($"OK — {FormatSize(ram.Length / 2)}, MD5 {Md5(ram)}");
-    });
+    }
 
     internal Task WriteRamAsync() => RunOperation("Write RAM", async (session, entry) =>
     {
