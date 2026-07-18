@@ -9,9 +9,10 @@ permissions:
 
 jobs:
   release:
-    # macOS runner: codesign is needed to ad-hoc sign the osx binaries —
-    # macOS SIGKILLs unsigned arm64 executables on launch. Any host can
-    # cross-publish the other RIDs.
+    # macOS runner: codesign/notarytool only exist on macOS, and macOS
+    # SIGKILLs unsigned arm64 executables on launch. Any host can
+    # cross-publish the other RIDs; Windows binaries are Authenticode-
+    # signed with osslsigncode.
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,16 +23,86 @@ jobs:
         run: ./ci.sh
       - name: Publish all targets
         run: VERSION="${GITHUB_REF_NAME#v}" ./publish.sh
-      - name: Sign macOS binaries and app bundles (ad-hoc)
+      - name: Sign macOS binaries and app bundles
+        # With MACOS_CERT_P12_BASE64 set: Developer ID signing with the
+        # hardened runtime (required for notarization). Without: ad-hoc,
+        # as before — Gatekeeper then needs right-click → Open. See
+        # docs/RELEASING.md.
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
         run: |
+          if [ -n "$MACOS_CERT_P12_BASE64" ]; then
+            security create-keychain -p ci build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p ci build.keychain
+            security set-keychain-settings -lut 21600 build.keychain
+            echo "$MACOS_CERT_P12_BASE64" | base64 --decode > /tmp/cert.p12
+            security import /tmp/cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+            rm /tmp/cert.p12
+            security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain >/dev/null
+            identity=$(security find-identity -v -p codesigning build.keychain | awk 'NR==1 {print $2}')
+            [ -n "$identity" ] || { echo "certificate import failed"; exit 1; }
+            echo "signing with Developer ID identity $identity"
+            sign() {
+              codesign --force --options runtime --timestamp \
+                --entitlements packaging/macos/entitlements.plist -s "$identity" "$1"
+            }
+          else
+            echo "MACOS_CERT_P12_BASE64 not set — ad-hoc signing (Gatekeeper will warn on first launch)"
+            sign() { codesign --force -s - "$1"; }
+          fi
           for rid in osx-x64 osx-arm64; do
             for bin in flashkit-md flashkit-md-gui; do
-              codesign --force -s - "artifacts/$rid/$bin"
+              sign "artifacts/$rid/$bin"
               codesign --verify "artifacts/$rid/$bin"
             done
-            codesign --force -s - "artifacts/$rid/FlashKit MD.app"
+            sign "artifacts/$rid/FlashKit MD.app"
             codesign --verify "artifacts/$rid/FlashKit MD.app"
           done
+      - name: Notarize and staple macOS artifacts
+        # Needs the Developer ID signing above plus notarization secrets.
+        # The .app bundles get stapled tickets (offline Gatekeeper pass);
+        # bare CLI binaries cannot be stapled, but notarizing them lets
+        # Gatekeeper verify them online.
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERT_P12_BASE64" ] || [ -z "$APPLE_ID" ]; then
+            echo "notarization secrets not set — skipping (first launch will need right-click → Open)"
+            exit 0
+          fi
+          for rid in osx-x64 osx-arm64; do
+            ditto -c -k --keepParent "artifacts/$rid/FlashKit MD.app" "/tmp/notarize-app-$rid.zip"
+            xcrun notarytool submit "/tmp/notarize-app-$rid.zip" --wait \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
+            xcrun stapler staple "artifacts/$rid/FlashKit MD.app"
+            zip -j "/tmp/notarize-cli-$rid.zip" "artifacts/$rid/flashkit-md" "artifacts/$rid/flashkit-md-gui"
+            xcrun notarytool submit "/tmp/notarize-cli-$rid.zip" --wait \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
+          done
+      - name: Sign Windows binaries (Authenticode)
+        env:
+          WINDOWS_CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if [ -z "$WINDOWS_CERT_PFX_BASE64" ]; then
+            echo "WINDOWS_CERT_PFX_BASE64 not set — shipping unsigned exes (SmartScreen will warn)"
+            exit 0
+          fi
+          brew install --quiet osslsigncode
+          echo "$WINDOWS_CERT_PFX_BASE64" | base64 --decode > /tmp/win.pfx
+          for exe in flashkit-md flashkit-md-gui; do
+            osslsigncode sign -pkcs12 /tmp/win.pfx -pass "$WINDOWS_CERT_PASSWORD" \
+              -n "FlashKit MD" -i "https://github.com/jfryman/flashkit-md-dotnet" \
+              -t "http://timestamp.digicert.com" \
+              -in "artifacts/win-x64/$exe.exe" -out "artifacts/win-x64/$exe.signed.exe"
+            mv "artifacts/win-x64/$exe.signed.exe" "artifacts/win-x64/$exe.exe"
+          done
+          rm /tmp/win.pfx
       - name: Package
         run: |
           mkdir -p dist
@@ -59,3 +130,34 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+
+  flatpak:
+    # Flatpak tooling is Linux-only, so this runs after the release
+    # exists and appends the bundle (and its checksum) to it.
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish linux-x64
+        run: VERSION="${GITHUB_REF_NAME#v}" RIDS=linux-x64 ./publish.sh
+      - name: Install flatpak-builder and runtimes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+      - name: Build Flatpak bundle
+        run: |
+          flatpak-builder --user --force-clean --repo=flatpak-repo flatpak-build \
+            packaging/flatpak/io.github.jfryman.FlashKitMD.yml
+          flatpak build-bundle flatpak-repo "flashkit-md-$GITHUB_REF_NAME-x86_64.flatpak" io.github.jfryman.FlashKitMD
+      - name: Upload bundle to release and update SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" -p SHA256SUMS -O SHA256SUMS
+          shasum -a 256 "flashkit-md-$GITHUB_REF_NAME-x86_64.flatpak" >> SHA256SUMS
+          gh release upload "$GITHUB_REF_NAME" "flashkit-md-$GITHUB_REF_NAME-x86_64.flatpak" SHA256SUMS --clobber

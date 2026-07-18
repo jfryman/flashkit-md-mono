@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+FEATURES:
+
+ * release: releases now ship a Linux Flatpak bundle
+   (`flashkit-md-vX.Y.Z-x86_64.flatpak`, app ID
+   `io.github.jfryman.FlashKitMD`). The manifest is Flathub-ready and CI
+   builds the bundle on every push so it cannot rot between releases.
+ * release: macOS binaries and app bundles are Developer ID-signed with
+   the hardened runtime, notarized, and stapled, and Windows executables
+   are Authenticode-signed, when the corresponding repository secrets are
+   configured (see docs/RELEASING.md). Without the secrets, releases ship
+   ad-hoc-signed/unsigned exactly as before.
+
+IMPROVEMENTS:
+
+ * docs: README.md now targets users — install from release artifacts
+   per platform, GUI and CLI usage, screenshot — while building,
+   architecture, and release process moved to DEVELOPING.md.
+
 ## 1.5.0 (July 17, 2026)
 
 FEATURES:

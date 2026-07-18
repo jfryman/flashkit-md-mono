@@ -5,6 +5,19 @@ Cross-platform .NET 8 port of krikzz's FlashKit MD programmer client
 for the (completed, archived) staged porting plan and
 docs/hardware-validation.md for real-hardware results.
 
+## Docs map (keep the audiences separate)
+
+- README.md — end users only: install from release artifacts, GUI/CLI
+  usage. No build instructions there.
+- DEVELOPING.md — contributors: build/test/publish, architecture,
+  release process. Human-oriented prose.
+- CLAUDE.md (this file) — agent working rules, condensed.
+- docs/RELEASING.md — release signing/notarization secrets and behavior.
+
+A user-visible change usually needs README.md updated; a workflow or
+build change usually needs DEVELOPING.md. Update this file only for
+rules agents must follow.
+
 ## Build and test
 
 ```

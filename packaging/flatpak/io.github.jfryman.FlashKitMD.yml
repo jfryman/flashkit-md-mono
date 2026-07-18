@@ -1,0 +1,44 @@
+# Flatpak manifest wrapping the self-contained linux-x64 binaries built
+# by publish.sh (run `RIDS=linux-x64 ./publish.sh` first). The .NET build
+# is self-contained single-file, so no dotnet SDK extension is needed.
+#
+# Build a bundle:
+#   flatpak-builder --user --force-clean --repo=repo build-dir \
+#     packaging/flatpak/io.github.jfryman.FlashKitMD.yml
+#   flatpak build-bundle repo flashkit-md-x86_64.flatpak io.github.jfryman.FlashKitMD
+app-id: io.github.jfryman.FlashKitMD
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: flashkit-md-gui
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  # The programmer is a USB serial adapter (/dev/ttyUSB*, /dev/ttyACM*);
+  # there is no portal for serial devices, so full device access it is.
+  - --device=all
+  # ROM/save dumps are ordinary files the user picks; Avalonia's file
+  # dialogs do not go through the document portal.
+  - --filesystem=home
+modules:
+  - name: flashkit-md
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 flashkit-md /app/bin/flashkit-md
+      - install -Dm755 flashkit-md-gui /app/bin/flashkit-md-gui
+      - install -Dm644 io.github.jfryman.FlashKitMD.desktop /app/share/applications/io.github.jfryman.FlashKitMD.desktop
+      - install -Dm644 io.github.jfryman.FlashKitMD.metainfo.xml /app/share/metainfo/io.github.jfryman.FlashKitMD.metainfo.xml
+      - install -Dm644 io.github.jfryman.FlashKitMD.png /app/share/icons/hicolor/128x128/apps/io.github.jfryman.FlashKitMD.png
+    sources:
+      - type: file
+        path: ../../artifacts/linux-x64/flashkit-md
+      - type: file
+        path: ../../artifacts/linux-x64/flashkit-md-gui
+      - type: file
+        path: io.github.jfryman.FlashKitMD.desktop
+      - type: file
+        path: io.github.jfryman.FlashKitMD.metainfo.xml
+      - type: file
+        path: io.github.jfryman.FlashKitMD.png

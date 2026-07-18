@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=FlashKit MD
+Comment=Dump and flash Sega Mega Drive / Genesis cartridges
+Exec=flashkit-md-gui
+Icon=io.github.jfryman.FlashKitMD
+Terminal=false
+Categories=Utility;Game;
+Keywords=sega;genesis;megadrive;cartridge;dumper;flasher;flashkit;

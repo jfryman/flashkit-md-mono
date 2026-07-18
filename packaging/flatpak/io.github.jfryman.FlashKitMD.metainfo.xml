@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.jfryman.FlashKitMD</id>
+  <name>FlashKit MD</name>
+  <summary>Dump and flash Sega Mega Drive / Genesis cartridges</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.jfryman">
+    <name>James Fryman</name>
+  </developer>
+  <description>
+    <p>
+      Client for krikzz's FlashKit MD programmer: dump cartridge ROMs and
+      save RAM, write ROM images to flash carts, and bake save snapshots.
+      Cartridge state refreshes automatically, every operation lands in a
+      transaction log with progress and MD5, and auto-dump/auto-write
+      modes handle batch dumping and flash-cart development loops.
+    </p>
+    <p>
+      This is a cross-platform port of krikzz's original Windows client;
+      all credit for the hardware and the original client goes to krikzz.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.jfryman.FlashKitMD.desktop</launchable>
+  <url type="homepage">https://github.com/jfryman/flashkit-md-dotnet</url>
+  <url type="bugtracker">https://github.com/jfryman/flashkit-md-dotnet/issues</url>
+  <content_rating type="oars-1.1" />
+  <categories>
+    <category>Utility</category>
+    <category>Game</category>
+  </categories>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <releases>
+    <release version="1.5.0" date="2026-07-17" />
+  </releases>
+</component>

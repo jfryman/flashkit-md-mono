@@ -41,3 +41,31 @@ jobs:
         with:
           name: flashkit-md-${{ matrix.rid }}
           path: artifacts/${{ matrix.rid }}/
+
+  flatpak:
+    # Exercises the Flatpak manifest on every push so it cannot rot
+    # between releases; the release workflow builds the shipping bundle.
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish linux-x64
+        run: RIDS=linux-x64 ./publish.sh
+      - name: Install flatpak-builder and runtimes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+      - name: Build Flatpak bundle
+        run: |
+          flatpak-builder --user --force-clean --repo=flatpak-repo flatpak-build \
+            packaging/flatpak/io.github.jfryman.FlashKitMD.yml
+          flatpak build-bundle flatpak-repo flashkit-md-x86_64.flatpak io.github.jfryman.FlashKitMD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flashkit-md-flatpak-x86_64
+          path: flashkit-md-x86_64.flatpak
