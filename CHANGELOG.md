@@ -15,7 +15,9 @@ FEATURES:
    GUI's keyboard-first sibling for SSH sessions, with the same live
    device/cart status, cart info panel, transaction log with progress,
    auto-dump/auto-write panels, and destructive-action warning. Ships in
-   the release tarballs and Windows zip alongside the CLI and GUI.
+   the release tarballs, the Windows zip, and the Flatpak (run it with
+   `flatpak run --command=flashkit-md-tui io.github.jfryman.FlashKitMD`)
+   alongside the CLI and GUI.
 
 IMPROVEMENTS:
 

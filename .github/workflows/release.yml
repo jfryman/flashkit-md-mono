@@ -157,7 +157,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}" RIDS=${{ matrix.rid }} ./publish.sh
           mkdir -p artifacts/flatpak-stage
-          cp "artifacts/${{ matrix.rid }}/flashkit-md" "artifacts/${{ matrix.rid }}/flashkit-md-gui" artifacts/flatpak-stage/
+          cp "artifacts/${{ matrix.rid }}/flashkit-md" "artifacts/${{ matrix.rid }}/flashkit-md-gui" "artifacts/${{ matrix.rid }}/flashkit-md-tui" artifacts/flatpak-stage/
       - name: Install flatpak-builder and runtimes
         run: |
           sudo apt-get update

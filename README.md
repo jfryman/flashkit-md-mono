@@ -49,6 +49,14 @@ flatpak install ./flashkit-md-vX.Y.Z-linux-x64.flatpak
 flatpak run io.github.jfryman.FlashKitMD
 ```
 
+`flatpak run` starts the GUI; the TUI and CLI ride along in the same
+bundle:
+
+```
+flatpak run --command=flashkit-md-tui io.github.jfryman.FlashKitMD
+flatpak run --command=flashkit-md io.github.jfryman.FlashKitMD info
+```
+
 **Tarball** (x86_64, arm64): `flashkit-md-vX.Y.Z-linux-{x64,arm64}.tar.gz`
 holds the `flashkit-md` CLI, `flashkit-md-gui`, and `flashkit-md-tui`
 binaries — untar and run.
