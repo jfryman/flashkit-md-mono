@@ -68,9 +68,18 @@ public class ProgrammerTuiWindow : Window
     internal readonly Label InfoHeaderSize = new() { Text = "—" };
     internal readonly Label AutoDumpFolderLabel = new() { Text = "No folder chosen" };
     internal readonly Label AutoWriteFileLabel = new() { Text = "No file chosen" };
-    internal readonly ProgressBar OperationProgress = new();
-    internal readonly ObservableCollection<string> TransactionLines = new();
-    internal readonly ListView LogList = new();
+    // Per-transaction cards (newest first) in a scrollable host, mirroring
+    // the GUI's log: each entry carries its own progress bar and full
+    // status text instead of one truncated line and a global bar.
+    internal readonly List<TransactionCard> Cards = new();
+    internal readonly View CardsHost = new()
+    {
+        X = 0,
+        Y = 0,
+        Width = Dim.Fill(),
+        Height = Dim.Fill(),
+        CanFocus = true,
+    };
 
     public ProgrammerTuiWindow(DeviceConnector? connector = null, IApplication? app = null)
     {
@@ -114,17 +123,11 @@ public class ProgrammerTuiWindow : Window
             Caption("RAM size", 2), At(InfoRamSize, 2),
             Caption("Header ROM size", 3), At(InfoHeaderSize, 3));
 
-        var transFrame = new FrameView { Title = "Transactions", X = LeftWidth, Y = 6, Width = Dim.Fill(), Height = Dim.Fill(4) };
-        LogList.X = 0;
-        LogList.Y = 0;
-        LogList.Width = Dim.Fill();
-        LogList.Height = Dim.Fill();
-        LogList.SetSource(TransactionLines);
-        transFrame.Add(LogList);
-
-        OperationProgress.X = 0;
-        OperationProgress.Y = Pos.AnchorEnd(4);
-        OperationProgress.Width = Dim.Fill();
+        var transFrame = new FrameView { Title = "Transactions", X = LeftWidth, Y = 6, Width = Dim.Fill(), Height = Dim.Fill(3) };
+        CardsHost.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
+        CardsHost.ViewportChanged += (_, _) => UpdateCardsLayout();
+        CardsHost.KeyDown += OnCardsHostKey;
+        transFrame.Add(CardsHost);
 
         // Bordered status bar along the bottom, like the GUI's. The cart
         // bullet chains off the device label rather than sitting at a fixed
@@ -143,7 +146,7 @@ public class ProgrammerTuiWindow : Window
         statusFrame.Add(DeviceDot, DeviceStatusLabel, CartDot, CartStatusLabel);
 
         Add(romFrame, ramFrame, autoDumpFrame, autoWriteFrame, infoFrame, transFrame,
-            OperationProgress, statusFrame);
+            statusFrame);
 
         // Plain Tab walks every interactive element across all panels, like
         // the GUI: FrameViews default to TabStop=TabGroup, which traps Tab
@@ -217,33 +220,51 @@ public class ProgrammerTuiWindow : Window
         ChkAutoWrite.Enabled = model.CanToggleAutoWrite;
     }
 
+    /// <summary>Entries are only ever inserted at the top of the model's
+    /// log; each gets a card at Y=0 and existing cards shift down. A new
+    /// entry snaps the view back to the top so the active operation is
+    /// visible, like the GUI (which always shows the newest entry).</summary>
     void OnLogChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.NewItems != null)
             foreach (TransactionEntry entry in e.NewItems)
-                entry.PropertyChanged += (_, _) => RebuildLines();
-        RebuildLines();
+            {
+                var card = new TransactionCard(entry);
+                Cards.Insert(0, card);
+                CardsHost.Add(card);
+            }
+        for (int i = 0; i < Cards.Count; i++) Cards[i].Y = i * TransactionCard.CardHeight;
+        UpdateCardsLayout();
+        CardsHost.Viewport = CardsHost.Viewport with { Y = 0 };
     }
 
-    void RebuildLines()
+    /// <summary>Content height tracks the card stack; content width tracks
+    /// the viewport (Dim.Fill sizes against the content area, so a stale
+    /// width would collapse or clip the cards).</summary>
+    void UpdateCardsLayout()
     {
-        TransactionLines.Clear();
-        foreach (var entry in model.Log) TransactionLines.Add(FormatLine(entry));
-
-        var newest = model.Log.Count > 0 ? model.Log[0] : null;
-        OperationProgress.Fraction = newest?.Running == true
-            ? (float)(newest.ProgressValue / Math.Max(1, newest.ProgressMax))
-            : 0f;
+        var size = new System.Drawing.Size(
+            Math.Max(1, CardsHost.Viewport.Width),
+            Math.Max(1, Cards.Count * TransactionCard.CardHeight));
+        if (CardsHost.GetContentSize() != size) CardsHost.SetContentSize(size);
     }
 
-    /// <summary>One transaction as a log line: time, outcome glyph
-    /// (▶ running, ✔ ok, ✖ failed, ○ cancelled), title, file, status.</summary>
-    internal static string FormatLine(TransactionEntry e)
+    void OnCardsHostKey(object? sender, Terminal.Gui.Input.Key key)
     {
-        string icon = e.Running ? "▶" : e.Failed ? "✖" : e.Succeeded ? "✔" : "○";
-        string detail = e.HasDetail ? $" [{Path.GetFileName(e.Detail)}]" : "";
-        string status = e.Status.Length != 0 ? " — " + e.Status : "";
-        return $"{e.Time} {icon} {e.Title}{detail}{status}";
+        int page = Math.Max(1, CardsHost.Viewport.Height - 1);
+        int delta;
+        if (key == Terminal.Gui.Input.Key.CursorDown) delta = 1;
+        else if (key == Terminal.Gui.Input.Key.CursorUp) delta = -1;
+        else if (key == Terminal.Gui.Input.Key.PageDown) delta = page;
+        else if (key == Terminal.Gui.Input.Key.PageUp) delta = -page;
+        else return;
+
+        int maxY = Math.Max(0, CardsHost.GetContentSize().Height - CardsHost.Viewport.Height);
+        CardsHost.Viewport = CardsHost.Viewport with
+        {
+            Y = Math.Clamp(CardsHost.Viewport.Y + delta, 0, maxY),
+        };
+        key.Handled = true;
     }
 
     sealed class Prompts : IUserPrompts

@@ -21,6 +21,12 @@ IMPROVEMENTS:
    including the transaction list on the right — Terminal.Gui's frames
    default to group navigation, which trapped Tab inside the current
    panel (the F6 group-hop key being the only way out).
+ * tui: transactions are now bordered cards like the GUI's log entries —
+   time, outcome glyph, and title in the border, the file path, the
+   entry's OWN progress bar, and the full status line (complete MD5s,
+   no more one-line truncation). The global bottom progress bar is
+   gone; the newest card scrolls into view when an operation starts,
+   and arrow/page keys scroll the card list.
 
 ## 1.6.0 (July 20, 2026)
 
