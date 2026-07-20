@@ -79,6 +79,38 @@ public class ProgrammerTuiWindowTests : IDisposable
         Assert.Equal("—", window.CartStatusLabel.Text);
     }
 
+    sealed class UnopenablePort : ISerialPort
+    {
+        readonly Exception error;
+        public UnopenablePort(Exception error) => this.error = error;
+        public string PortName => "BROKEN";
+        public int ReadTimeout { get; set; }
+        public int WriteTimeout { get; set; }
+        public void Open() => throw error;
+        public void Close() { }
+        public void Write(byte[] buffer, int offset, int count) => throw error;
+        public int Read(byte[] buffer, int offset, int count) => throw error;
+        public int ReadByte() => throw error;
+    }
+
+    [Fact]
+    public async Task permission_denied_is_surfaced_not_masked_as_missing()
+    {
+        // Regression: a denied serial port used to render as the same
+        // "No programmer detected" as an unplugged programmer.
+        var window = new ProgrammerTuiWindow(new DeviceConnector(
+            () => new[] { "/dev/ttyUSB0" },
+            _ => new UnopenablePort(new UnauthorizedAccessException(
+                "Access to the port '/dev/ttyUSB0' is denied.")),
+            HostOs.Linux));
+
+        await window.RefreshAsync();
+
+        Assert.Equal("○", window.DeviceDot.Text);
+        Assert.Contains("permission denied on /dev/ttyUSB0", window.DeviceStatusLabel.Text);
+        Assert.Contains("serial group", window.DeviceStatusLabel.Text);
+    }
+
     [Fact]
     public async Task session_is_held_across_polls_and_operations()
     {

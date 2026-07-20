@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+BUG FIXES:
+
+ * gui/tui: a permission-denied serial port no longer masquerades as
+   "No programmer detected" — the status bar now names the denied port
+   and points at the serial group ('dialout', 'uucp' on Arch) fix. The
+   CLI always reported this; the interactive front-ends swallowed it.
+
 FEATURES:
 
  * tui: new `flashkit-md-tui` terminal front-end (Terminal.Gui) — the

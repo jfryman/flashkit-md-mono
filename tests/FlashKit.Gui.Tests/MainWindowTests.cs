@@ -137,6 +137,24 @@ public class MainWindowTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task permission_denied_is_surfaced_not_masked_as_missing()
+    {
+        // Regression: a denied serial port used to render as the same
+        // "No programmer detected" as an unplugged programmer.
+        var window = new MainWindow(new DeviceConnector(
+            () => new[] { "/dev/ttyUSB0" },
+            _ => throw new UnauthorizedAccessException(
+                "Access to the port '/dev/ttyUSB0' is denied."),
+            HostOs.Linux));
+        window.Show();
+
+        await window.RefreshAsync();
+
+        Assert.Contains("permission denied on /dev/ttyUSB0", Text(window, "DeviceStatusText"));
+        Assert.Contains("serial group", Text(window, "DeviceStatusText"));
+    }
+
+    [AvaloniaFact]
     public async Task read_rom_dumps_cart_and_logs_transaction()
     {
         var rom = TestRoms.MakeRom(0x80000);

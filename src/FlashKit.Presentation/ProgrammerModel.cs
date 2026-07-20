@@ -217,9 +217,10 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
                 if (AutoDumpEnabled || AutoWriteEnabled) insertedCart = info;
             }
         }
-        catch (DeviceNotFoundException)
+        catch (DeviceNotFoundException x)
         {
             ShowDeviceState(null);
+            DeviceStatus = DescribeDeviceError(x);
             ShowCartState(null);
             cartProcessed = false;
         }
@@ -266,6 +267,21 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
         for (int n = 2; File.Exists(path); n++)
             path = Path.Combine(folder, $"{stem} ({n}){ext}");
         return path;
+    }
+
+    /// <summary>A permission-denied port must not masquerade as an absent
+    /// programmer — that cost a real debugging session. Everything else
+    /// stays the plain "not detected" (genuinely unplugged, or ports that
+    /// answered with the wrong ID).</summary>
+    static string DescribeDeviceError(DeviceNotFoundException x)
+    {
+        string? denied = x.PortErrors.FirstOrDefault(e =>
+            e.Contains("denied", StringComparison.OrdinalIgnoreCase) ||
+            e.Contains("permission", StringComparison.OrdinalIgnoreCase));
+        if (denied == null) return "No programmer detected";
+        string port = denied.Split(':')[0];
+        return $"No programmer: permission denied on {port} — add your user "
+             + "to the serial group ('dialout', 'uucp' on Arch) and log in again";
     }
 
     void ShowDeviceState(string? port)
