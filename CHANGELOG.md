@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+IMPROVEMENTS:
+
+ * tui: transaction cards are now only as tall as their status needs — a
+   running or failed entry is compact, and a completed dump/write grows to
+   fit its CRC32/MD5/SHA-1 lines, instead of every card reserving room for
+   the hash block.
+ * tui: the left control column scrolls inside its own pane and shows a
+   scrollbar when the terminal is too short to hold every panel, so the
+   status bar (and a new key-hint line: Tab / scroll / Enter / Ctrl+Q) is
+   always visible instead of being pushed off-screen on ~24-row terminals.
+   Tabbing to a control below the fold scrolls it into view.
+
+BUG FIXES:
+
+ * tui: long file paths in transaction cards are middle-ellipsized so the
+   filename stays visible, instead of being truncated on the right and
+   losing the name.
+
 ## 1.8.1 (July 20, 2026)
 
 BUG FIXES:

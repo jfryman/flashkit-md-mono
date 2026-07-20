@@ -24,6 +24,8 @@ namespace FlashKit.Tui;
 public class ProgrammerTuiWindow : Window
 {
     const int LeftWidth = 26;
+    const int StatusRows = 4;       // border (2) + device/cart line + hint line
+    const int LeftContentRows = 25; // ROM 4 + RAM 4 + Auto-dump 6 + Auto-write 5 + IPS 6
 
     readonly ProgrammerModel model;
     readonly IApplication? app;
@@ -62,6 +64,10 @@ public class ProgrammerTuiWindow : Window
     internal readonly Label CartDot = new() { Text = "○" };
     internal readonly Label DeviceStatusLabel = new() { Text = "" };
     internal readonly Label CartStatusLabel = new() { Text = "" };
+    internal readonly Label HintLabel = new()
+    {
+        Text = "Tab: move   ↑↓ PgUp/PgDn: scroll log   Enter: activate   Ctrl+Q: quit",
+    };
     internal readonly Label InfoName = new() { Text = "—" };
     internal readonly Label InfoSystem = new() { Text = "—" };
     internal readonly Label InfoRegion = new() { Text = "—" };
@@ -99,35 +105,53 @@ public class ProgrammerTuiWindow : Window
         model.PropertyChanged += (_, _) => SyncFromModel();
         model.Log.CollectionChanged += OnLogChanged;
 
-        var romFrame = new FrameView { Title = "ROM", X = 0, Y = 0, Width = LeftWidth, Height = 4 };
+        var romFrame = new FrameView { Title = "ROM", X = 0, Y = 0, Width = Dim.Fill(), Height = 4 };
         Place(BtnReadRom, 0);
         Place(BtnWriteRom, 1);
         romFrame.Add(BtnReadRom, BtnWriteRom);
 
-        var ramFrame = new FrameView { Title = "RAM", X = 0, Y = 4, Width = LeftWidth, Height = 4 };
+        var ramFrame = new FrameView { Title = "RAM", X = 0, Y = 4, Width = Dim.Fill(), Height = 4 };
         Place(BtnReadRam, 0);
         Place(BtnWriteRam, 1);
         ramFrame.Add(BtnReadRam, BtnWriteRam);
 
-        var autoDumpFrame = new FrameView { Title = "Auto-dump", X = 0, Y = 8, Width = LeftWidth, Height = 6 };
+        var autoDumpFrame = new FrameView { Title = "Auto-dump", X = 0, Y = 8, Width = Dim.Fill(), Height = 6 };
         Place(ChkAutoRom, 0);
         Place(ChkAutoRam, 1);
         Place(BtnDumpFolder, 2);
         Place(AutoDumpFolderLabel, 3);
         autoDumpFrame.Add(ChkAutoRom, ChkAutoRam, BtnDumpFolder, AutoDumpFolderLabel);
 
-        var autoWriteFrame = new FrameView { Title = "Auto-write", X = 0, Y = 14, Width = LeftWidth, Height = 5 };
+        var autoWriteFrame = new FrameView { Title = "Auto-write", X = 0, Y = 14, Width = Dim.Fill(), Height = 5 };
         Place(ChkAutoWrite, 0);
         Place(BtnWriteFile, 1);
         Place(AutoWriteFileLabel, 2);
         autoWriteFrame.Add(ChkAutoWrite, BtnWriteFile, AutoWriteFileLabel);
 
-        var ipsFrame = new FrameView { Title = "IPS patch", X = 0, Y = 19, Width = LeftWidth, Height = 6 };
+        var ipsFrame = new FrameView { Title = "IPS patch", X = 0, Y = 19, Width = Dim.Fill(), Height = 6 };
         Place(ChkApplyPatch, 0);
         Place(BtnPatchFile, 1);
         Place(PatchFileLabel, 2);
         Place(BtnCreatePatch, 3);
         ipsFrame.Add(ChkApplyPatch, BtnPatchFile, PatchFileLabel, BtnCreatePatch);
+
+        // The five action/auto/IPS panels (25 rows total) live in a scroll
+        // host confined above the status bar: a short terminal shows a scroll
+        // bar and scrolls them into view instead of overflowing onto the
+        // status bar. SetContentSize makes the host clip its content to the
+        // viewport and scroll (a plain View without it does not scroll).
+        var leftHost = new View { X = 0, Y = 0, Width = LeftWidth, Height = Dim.Fill(StatusRows), CanFocus = true };
+        leftHost.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
+        leftHost.Add(romFrame, ramFrame, autoDumpFrame, autoWriteFrame, ipsFrame);
+        leftHost.SetContentSize(new System.Drawing.Size(LeftWidth, LeftContentRows));
+        // When the terminal grows (or during initial layout), pull the scroll
+        // back so no content is stranded above the top — otherwise a reveal
+        // that scrolled while the viewport was briefly small would stick.
+        leftHost.ViewportChanged += (_, _) =>
+        {
+            int maxY = Math.Max(0, leftHost.GetContentSize().Height - leftHost.Viewport.Height);
+            if (leftHost.Viewport.Y > maxY) leftHost.Viewport = leftHost.Viewport with { Y = maxY };
+        };
 
         var infoFrame = new FrameView { Title = "Cartridge", X = LeftWidth, Y = 0, Width = Dim.Fill(), Height = 8 };
         infoFrame.Add(
@@ -138,18 +162,18 @@ public class ProgrammerTuiWindow : Window
             Caption("RAM size", 4), At(InfoRamSize, 4),
             Caption("Header ROM size", 5), At(InfoHeaderSize, 5));
 
-        var transFrame = new FrameView { Title = "Transactions", X = LeftWidth, Y = 8, Width = Dim.Fill(), Height = Dim.Fill(3) };
+        var transFrame = new FrameView { Title = "Transactions", X = LeftWidth, Y = 8, Width = Dim.Fill(), Height = Dim.Fill(StatusRows) };
         CardsHost.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
-        CardsHost.ViewportChanged += (_, _) => UpdateCardsLayout();
+        CardsHost.ViewportChanged += (_, _) => RelayoutCards();
         CardsHost.KeyDown += OnCardsHostKey;
         transFrame.Add(CardsHost);
 
-        // Bordered status bar along the bottom, like the GUI's. The cart
+        // Bordered status bar along the bottom, like the GUI's: device/cart
+        // status on the first line, a dim key-hint line below it. The cart
         // bullet chains off the device label rather than sitting at a fixed
         // column: macOS port names ("/dev/cu.usbserial-…") push the device
-        // text past any fixed offset and the two would overlap. Mirrors the
-        // GUI status bar's padding and StackPanel spacing.
-        var statusFrame = new FrameView { X = 0, Y = Pos.AnchorEnd(3), Width = Dim.Fill(), Height = 3 };
+        // text past any fixed offset and the two would overlap.
+        var statusFrame = new FrameView { X = 0, Y = Pos.AnchorEnd(StatusRows), Width = Dim.Fill(), Height = StatusRows };
         DeviceDot.X = 1;
         DeviceDot.Y = 0;
         DeviceStatusLabel.X = 3;
@@ -158,20 +182,36 @@ public class ProgrammerTuiWindow : Window
         CartDot.Y = 0;
         CartStatusLabel.X = Pos.Right(CartDot) + 2;
         CartStatusLabel.Y = 0;
-        statusFrame.Add(DeviceDot, DeviceStatusLabel, CartDot, CartStatusLabel);
+        HintLabel.X = 1;
+        HintLabel.Y = 1;
+        IndicatorColors.Tint(HintLabel, IndicatorColors.Neutral);
+        statusFrame.Add(DeviceDot, DeviceStatusLabel, CartDot, CartStatusLabel, HintLabel);
 
-        Add(romFrame, ramFrame, autoDumpFrame, autoWriteFrame, ipsFrame, infoFrame, transFrame,
-            statusFrame);
+        Add(leftHost, infoFrame, transFrame, statusFrame);
 
         // Plain Tab walks every interactive element across all panels, like
         // the GUI: FrameViews default to TabStop=TabGroup, which traps Tab
         // inside the current frame (F6 moves between groups — undiscoverable).
+        // The scroll host and its panels are all plain tab stops so one Tab
+        // cycle flows through the left column and on to the transaction list.
         // Display-only frames opt out of focus entirely, or they'd become
         // empty Tab stops themselves.
+        leftHost.TabStop = TabBehavior.TabStop;
         foreach (var frame in new[] { romFrame, ramFrame, autoDumpFrame, autoWriteFrame, ipsFrame, transFrame })
             frame.TabStop = TabBehavior.TabStop;
         infoFrame.CanFocus = false;
         statusFrame.CanFocus = false;
+
+        // On a terminal too short to show the whole left column, tabbing to a
+        // control below the fold scrolls the host to reveal it (Terminal.Gui
+        // does not follow focus into a scrolled view on its own).
+        foreach (var ctrl in new View[]
+        {
+            BtnReadRom, BtnWriteRom, BtnReadRam, BtnWriteRam,
+            ChkAutoRom, ChkAutoRam, BtnDumpFolder,
+            ChkAutoWrite, BtnWriteFile, ChkApplyPatch, BtnPatchFile, BtnCreatePatch,
+        })
+            ctrl.HasFocusChanged += (_, _) => { if (ctrl.HasFocus) RevealInLeftHost(leftHost, ctrl); };
 
         BtnReadRom.Accepting += (_, e) => { e.Handled = true; _ = model.ReadRomAsync(); };
         BtnWriteRom.Accepting += (_, e) => { e.Handled = true; _ = model.WriteRomAsync(); };
@@ -186,6 +226,16 @@ public class ProgrammerTuiWindow : Window
         ChkAutoWrite.ValueChanged += (_, _) => _ = OnToggleAsync(ChkAutoWrite, model.RequestAutoWriteAsync);
         ChkApplyPatch.ValueChanged += (_, _) => _ = OnToggleAsync(ChkApplyPatch, model.RequestApplyPatchAsync);
 
+        // Explicit quit key so the hint line is truthful across drivers.
+        KeyDown += (_, key) =>
+        {
+            if (key == Terminal.Gui.Input.Key.Q.WithCtrl)
+            {
+                key.Handled = true;
+                app?.RequestStop();
+            }
+        };
+
         SyncFromModel();
     }
 
@@ -193,6 +243,22 @@ public class ProgrammerTuiWindow : Window
     {
         v.X = 0;
         v.Y = row;
+    }
+
+    /// <summary>Scrolls the left host so the panel containing the focused
+    /// control is fully visible.</summary>
+    static void RevealInLeftHost(View host, View ctrl)
+    {
+        if (ctrl.SuperView is not { } panel) return;
+        int top = panel.Frame.Y;
+        int bottom = panel.Frame.Y + panel.Frame.Height; // exclusive
+        var vp = host.Viewport;
+        int newY = vp.Y;
+        if (top < vp.Y) newY = top;
+        else if (bottom > vp.Y + vp.Height) newY = bottom - vp.Height;
+        int maxY = Math.Max(0, host.GetContentSize().Height - vp.Height);
+        newY = Math.Clamp(newY, 0, maxY);
+        if (newY != vp.Y) host.Viewport = vp with { Y = newY };
     }
 
     static Label Caption(string text, int row) => new() { Text = text, X = 0, Y = row };
@@ -262,20 +328,27 @@ public class ProgrammerTuiWindow : Window
                 var card = new TransactionCard(entry);
                 Cards.Insert(0, card);
                 CardsHost.Add(card);
+                // A card's status can grow (a running op completes with hash
+                // lines), which changes its height and shifts the cards below.
+                entry.PropertyChanged += (_, _) => RelayoutCards();
             }
-        for (int i = 0; i < Cards.Count; i++) Cards[i].Y = i * TransactionCard.CardHeight;
-        UpdateCardsLayout();
+        RelayoutCards();
         CardsHost.Viewport = CardsHost.Viewport with { Y = 0 };
     }
 
-    /// <summary>Content height tracks the card stack; content width tracks
-    /// the viewport (Dim.Fill sizes against the content area, so a stale
-    /// width would collapse or clip the cards).</summary>
-    void UpdateCardsLayout()
+    /// <summary>Stacks the cards top-down at their individual heights and
+    /// sizes the scroll content to the total. Content width tracks the
+    /// viewport (Dim.Fill sizes against the content area, so a stale width
+    /// would collapse or clip the cards).</summary>
+    void RelayoutCards()
     {
-        var size = new System.Drawing.Size(
-            Math.Max(1, CardsHost.Viewport.Width),
-            Math.Max(1, Cards.Count * TransactionCard.CardHeight));
+        int y = 0;
+        foreach (var card in Cards) // newest first
+        {
+            card.Y = y;
+            y += card.DesiredHeight;
+        }
+        var size = new System.Drawing.Size(Math.Max(1, CardsHost.Viewport.Width), Math.Max(1, y));
         if (CardsHost.GetContentSize() != size) CardsHost.SetContentSize(size);
     }
 

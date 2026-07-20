@@ -9,13 +9,15 @@ namespace FlashKit.Tui;
 /// time + title in the border, then a colored outcome bubble (▶ amber
 /// running, ✔ green ok, ✖ red failed, ○ gray cancelled) beside the file
 /// path, the entry's own progress bar, and the full status line (result
-/// size and MD5, or the error — red on failure, like the GUI).
+/// size and MD5/CRC32/SHA-1, or the error — red on failure, like the GUI).
+///
+/// The card is only as tall as its status needs: one line for a running or
+/// failed entry, four for a completed dump/write whose status carries the
+/// hash lines. The host repositions cards when a height changes.
 /// </summary>
 internal sealed class TransactionCard : FrameView
 {
-    // Detail + progress + a status that runs up to 4 lines (the "OK — size"
-    // result plus a CRC32/MD5/SHA-1 line each), inside the border.
-    public const int CardHeight = 8;
+    const int PathWidth = 64;
 
     public TransactionEntry Entry { get; }
 
@@ -28,25 +30,31 @@ internal sealed class TransactionCard : FrameView
     {
         Entry = entry;
         Width = Dim.Fill();
-        Height = CardHeight;
         CanFocus = false;
         Add(Bubble, DetailLabel, Progress, StatusLabel);
         entry.PropertyChanged += (_, _) => Sync();
         Sync();
     }
 
+    /// <summary>Border (2) + detail + progress + however many status lines.</summary>
+    public int DesiredHeight => 4 + Math.Max(1, StatusLineCount);
+
+    int StatusLineCount => Entry.Status.Length == 0 ? 1 : Entry.Status.Split('\n').Length;
+
     void Sync()
     {
+        string icon = Entry.Running ? "▶" : Entry.Failed ? "✖" : Entry.Succeeded ? "✔" : "○";
         Title = $"{Entry.Time} {Entry.Title}";
-        Bubble.Text = Entry.Running ? "▶" : Entry.Failed ? "✖" : Entry.Succeeded ? "✔" : "○";
+        Bubble.Text = icon;
         IndicatorColors.Tint(Bubble,
             Entry.Running ? IndicatorColors.Running
             : Entry.Failed ? IndicatorColors.Failure
             : Entry.Succeeded ? IndicatorColors.Success
             : IndicatorColors.Neutral);
-        DetailLabel.Text = Entry.Detail;
+        DetailLabel.Text = PathDisplay.Ellipsize(Entry.Detail, PathWidth);
         Progress.Fraction = (float)(Entry.ProgressValue / Math.Max(1, Entry.ProgressMax));
         StatusLabel.Text = Entry.Status;
         if (Entry.Failed) IndicatorColors.Tint(StatusLabel, IndicatorColors.Failure);
+        Height = DesiredHeight;
     }
 }

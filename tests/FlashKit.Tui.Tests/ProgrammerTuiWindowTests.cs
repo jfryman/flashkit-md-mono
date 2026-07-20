@@ -111,6 +111,36 @@ public class ProgrammerTuiWindowTests : IDisposable
         Assert.True(window.CartStatusLabel.Frame.X >= window.CartDot.Frame.Right + 2);
     }
 
+    [Theory]
+    // Short paths pass through; long ones keep the leading dir and filename.
+    [InlineData("/dumps/GAME.bin", 40, "/dumps/GAME.bin")]
+    public void ellipsize_leaves_short_paths_unchanged(string path, int max, string expected)
+    {
+        Assert.Equal(expected, FlashKit.Presentation.PathDisplay.Ellipsize(path, max));
+    }
+
+    [Fact]
+    public void ellipsize_keeps_the_filename_visible_on_a_long_path()
+    {
+        string path = "/home/james/dumps/roms/genesis/SHINING FORCE 2 (U).bin";
+        string result = FlashKit.Presentation.PathDisplay.Ellipsize(path, 40);
+        Assert.True(result.Length <= 40);
+        Assert.Contains("…", result);
+        Assert.EndsWith("2 (U).bin", result); // filename survives
+    }
+
+    [Fact]
+    public void card_is_compact_until_it_carries_hash_lines()
+    {
+        var entry = new TransactionEntry("Read ROM") { Status = "Reading ROM..." };
+        var card = new TransactionCard(entry);
+        int running = card.DesiredHeight;
+
+        entry.Succeed("OK — 512K\nCRC32 AB\nMD5 CD\nSHA-1 EF");
+        Assert.True(card.DesiredHeight > running, "card should grow to fit the hash lines");
+        Assert.Equal(running + 3, card.DesiredHeight); // three extra status lines
+    }
+
     [Fact]
     public void action_buttons_are_uniform_and_shadowless()
     {
@@ -327,7 +357,8 @@ public class ProgrammerTuiWindowTests : IDisposable
         Assert.Contains("Read ROM", card.Title);
         Assert.Equal("✔", card.Bubble.Text);
         Assert.Equal(IndicatorColors.Success, card.Bubble.GetScheme().Normal.Foreground);
-        Assert.Equal(file, card.DetailLabel.Text);
+        Assert.Equal(file, card.Entry.Detail);
+        Assert.Contains("dump.bin", card.DetailLabel.Text); // filename always visible
         Assert.StartsWith("OK — 512K", card.StatusLabel.Text);
         Assert.Contains("CRC32 ", card.StatusLabel.Text);
         Assert.Contains("MD5 ", card.StatusLabel.Text);
