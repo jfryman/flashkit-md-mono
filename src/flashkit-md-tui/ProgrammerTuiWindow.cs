@@ -70,7 +70,7 @@ public class ProgrammerTuiWindow : Window
     internal readonly Label AutoWriteFileLabel = new() { Text = "No file chosen" };
     internal readonly ProgressBar OperationProgress = new();
     internal readonly ObservableCollection<string> TransactionLines = new();
-    readonly ListView logList = new();
+    internal readonly ListView LogList = new();
 
     public ProgrammerTuiWindow(DeviceConnector? connector = null, IApplication? app = null)
     {
@@ -115,12 +115,12 @@ public class ProgrammerTuiWindow : Window
             Caption("Header ROM size", 3), At(InfoHeaderSize, 3));
 
         var transFrame = new FrameView { Title = "Transactions", X = LeftWidth, Y = 6, Width = Dim.Fill(), Height = Dim.Fill(4) };
-        logList.X = 0;
-        logList.Y = 0;
-        logList.Width = Dim.Fill();
-        logList.Height = Dim.Fill();
-        logList.SetSource(TransactionLines);
-        transFrame.Add(logList);
+        LogList.X = 0;
+        LogList.Y = 0;
+        LogList.Width = Dim.Fill();
+        LogList.Height = Dim.Fill();
+        LogList.SetSource(TransactionLines);
+        transFrame.Add(LogList);
 
         OperationProgress.X = 0;
         OperationProgress.Y = Pos.AnchorEnd(4);
@@ -144,6 +144,16 @@ public class ProgrammerTuiWindow : Window
 
         Add(romFrame, ramFrame, autoDumpFrame, autoWriteFrame, infoFrame, transFrame,
             OperationProgress, statusFrame);
+
+        // Plain Tab walks every interactive element across all panels, like
+        // the GUI: FrameViews default to TabStop=TabGroup, which traps Tab
+        // inside the current frame (F6 moves between groups — undiscoverable).
+        // Display-only frames opt out of focus entirely, or they'd become
+        // empty Tab stops themselves.
+        foreach (var frame in new[] { romFrame, ramFrame, autoDumpFrame, autoWriteFrame, transFrame })
+            frame.TabStop = TabBehavior.TabStop;
+        infoFrame.CanFocus = false;
+        statusFrame.CanFocus = false;
 
         BtnReadRom.Accepting += (_, e) => { e.Handled = true; _ = model.ReadRomAsync(); };
         BtnWriteRom.Accepting += (_, e) => { e.Handled = true; _ = model.WriteRomAsync(); };

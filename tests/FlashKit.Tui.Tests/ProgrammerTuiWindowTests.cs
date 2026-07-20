@@ -121,6 +121,37 @@ public class ProgrammerTuiWindowTests : IDisposable
             Assert.Equal(Terminal.Gui.ViewBase.ShadowStyles.None, b.ShadowStyle);
     }
 
+    [Fact]
+    public void tab_reaches_every_interactive_element_including_the_log()
+    {
+        // FrameViews default to TabStop=TabGroup, which traps Tab inside the
+        // current frame; the transaction list on the right was unreachable.
+        var window = Window(new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)));
+        window.Frame = new System.Drawing.Rectangle(0, 0, 100, 28);
+        window.Layout();
+
+        window.FocusDeepest(Terminal.Gui.ViewBase.NavigationDirection.Forward,
+            Terminal.Gui.ViewBase.TabBehavior.TabStop);
+        var focused = new List<Terminal.Gui.ViewBase.View?>();
+        for (int i = 0; i < 24; i++)
+        {
+            focused.Add(window.MostFocused);
+            window.AdvanceFocus(Terminal.Gui.ViewBase.NavigationDirection.Forward,
+                Terminal.Gui.ViewBase.TabBehavior.TabStop);
+        }
+
+        var expected = new Terminal.Gui.ViewBase.View[]
+        {
+            window.BtnReadRom, window.BtnWriteRom, window.BtnReadRam, window.BtnWriteRam,
+            window.ChkAutoRom, window.ChkAutoRam, window.BtnDumpFolder,
+            window.ChkAutoWrite, window.BtnWriteFile, window.LogList,
+        };
+        foreach (var view in expected)
+            Assert.Contains(view, focused);
+        // no display-only frame becomes an empty Tab stop
+        Assert.DoesNotContain(focused, v => v is FrameView);
+    }
+
     sealed class UnopenablePort : ISerialPort
     {
         readonly Exception error;

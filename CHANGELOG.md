@@ -17,6 +17,10 @@ IMPROVEMENTS:
 
  * tui: the device/cartridge status line at the bottom now sits in a
    bordered bar with left padding, matching the GUI's status bar.
+ * tui: Tab now walks every interactive element across all panels,
+   including the transaction list on the right — Terminal.Gui's frames
+   default to group navigation, which trapped Tab inside the current
+   panel (the F6 group-hop key being the only way out).
 
 ## 1.6.0 (July 20, 2026)
 
