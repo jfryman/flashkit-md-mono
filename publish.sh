@@ -4,10 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-if ! command -v dotnet >/dev/null 2>&1 && [ -x "$HOME/.dotnet/dotnet" ]; then
-  export PATH="$HOME/.dotnet:$PATH"
-fi
-export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+# shellcheck source=ensure-dotnet.sh
+. ./ensure-dotnet.sh
 
 RIDS=(${RIDS:-linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64})
 
