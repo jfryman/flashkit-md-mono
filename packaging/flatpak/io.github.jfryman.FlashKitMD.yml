@@ -1,11 +1,11 @@
 # Flatpak manifest wrapping the self-contained Linux binaries built by
-# publish.sh. The manifest is arch-neutral: stage the binaries for the
+# eng/publish.sh. The manifest is arch-neutral: stage the binaries for the
 # target arch into artifacts/flatpak-stage/ first (linux-x64 → x86_64,
 # linux-arm64 → aarch64) and build on a host of that arch. The .NET build
 # is self-contained single-file, so no dotnet SDK extension is needed.
 #
 # Build a bundle:
-#   RIDS=linux-x64 ./publish.sh
+#   RIDS=linux-x64 ./eng/publish.sh
 #   mkdir -p artifacts/flatpak-stage
 #   cp artifacts/linux-x64/flashkit-md artifacts/linux-x64/flashkit-md-gui artifacts/flatpak-stage/
 #   flatpak-builder --user --force-clean --repo=repo build-dir \

@@ -172,7 +172,7 @@ Notes / discrepancies:
 - 2026-07-17, macOS 26.5.2 (Apple Silicon, arm64), programmer on
   /dev/cu.usbserial-A10MQJP4, release binary v0.9.0 osx-arm64.
 - Release packaging bugs (not port bugs) blocked the binary from running
-  at all; both fixed since (publish.sh embeds native libs via
+  at all; both fixed since (eng/publish.sh embeds native libs via
   IncludeNativeLibrariesForSelfExtract; release.yml runs on macos-latest
   and ad-hoc signs the osx binaries) — needs a v0.9.1 tag to take effect:
   1. The binary is unsigned; macOS SIGKILLs unsigned arm64 executables

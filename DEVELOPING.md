@@ -8,16 +8,16 @@ from — keep the three in sync when things change.
 ## Building and testing
 
 Requires the .NET 10 SDK — but you don't need to install it yourself:
-both scripts source `ensure-dotnet.sh`, which installs the SDK pinned in
+both scripts source `eng/ensure-dotnet.sh`, which installs the SDK pinned in
 `global.json` into `~/.dotnet` (via Microsoft's `dotnet-install.sh`) when
 no install on the machine satisfies it.
 
 ```
-./ci.sh        # restore + build (warnings as errors) + all tests, a few seconds
-./publish.sh   # self-contained single-file binaries into artifacts/<rid>/
+./eng/ci.sh        # restore + build (warnings as errors) + all tests, a few seconds
+./eng/publish.sh   # self-contained single-file binaries into artifacts/<rid>/
 ```
 
-`publish.sh` cross-publishes every supported target
+`eng/publish.sh` cross-publishes every supported target
 (`linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64`) from any host; set
 `RIDS` to build a subset and `VERSION` to override the git-derived version
 stamp. The macOS targets also get a `FlashKit MD.app` bundle assembled by

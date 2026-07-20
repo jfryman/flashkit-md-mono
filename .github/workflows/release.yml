@@ -20,9 +20,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Test
-        run: ./ci.sh
+        run: ./eng/ci.sh
       - name: Publish all targets
-        run: VERSION="${GITHUB_REF_NAME#v}" ./publish.sh
+        run: VERSION="${GITHUB_REF_NAME#v}" ./eng/publish.sh
       - name: Sign macOS binaries and app bundles
         # With MACOS_CERT_P12_BASE64 set: Developer ID signing with the
         # hardened runtime (required for notarization). Without: ad-hoc,
@@ -155,7 +155,7 @@ jobs:
           dotnet-version: 10.0.x
       - name: Publish ${{ matrix.rid }} and stage for the manifest
         run: |
-          VERSION="${GITHUB_REF_NAME#v}" RIDS=${{ matrix.rid }} ./publish.sh
+          VERSION="${GITHUB_REF_NAME#v}" RIDS=${{ matrix.rid }} ./eng/publish.sh
           mkdir -p artifacts/flatpak-stage
           cp "artifacts/${{ matrix.rid }}/flashkit-md" "artifacts/${{ matrix.rid }}/flashkit-md-gui" "artifacts/${{ matrix.rid }}/flashkit-md-tui" artifacts/flatpak-stage/
       - name: Install flatpak-builder and runtimes

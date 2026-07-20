@@ -2,10 +2,10 @@
 # Builds self-contained single-file binaries for every supported platform
 # into artifacts/<rid>/. Any host OS can cross-publish all targets.
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."  # repo root; this script lives in eng/
 
-# shellcheck source=ensure-dotnet.sh
-. ./ensure-dotnet.sh
+# shellcheck source=eng/ensure-dotnet.sh
+. ./eng/ensure-dotnet.sh
 
 RIDS=(${RIDS:-linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64})
 

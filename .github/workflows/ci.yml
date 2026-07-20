@@ -36,7 +36,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Publish ${{ matrix.rid }}
-        run: RIDS=${{ matrix.rid }} ./publish.sh
+        run: RIDS=${{ matrix.rid }} ./eng/publish.sh
       - uses: actions/upload-artifact@v4
         with:
           name: flashkit-md-${{ matrix.rid }}
@@ -64,7 +64,7 @@ jobs:
           dotnet-version: 10.0.x
       - name: Publish ${{ matrix.rid }} and stage for the manifest
         run: |
-          RIDS=${{ matrix.rid }} ./publish.sh
+          RIDS=${{ matrix.rid }} ./eng/publish.sh
           mkdir -p artifacts/flatpak-stage
           cp "artifacts/${{ matrix.rid }}/flashkit-md" "artifacts/${{ matrix.rid }}/flashkit-md-gui" "artifacts/${{ matrix.rid }}/flashkit-md-tui" artifacts/flatpak-stage/
       - name: Install flatpak-builder and runtimes
