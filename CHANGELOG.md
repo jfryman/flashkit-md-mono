@@ -4,6 +4,11 @@
 
 IMPROVEMENTS:
 
+ * release: the published binaries are now trimmed, cutting download size
+   by ~60% (the CLI from ~39 MB to ~13 MB, the GUI from ~48 MB to ~21 MB)
+   while staying fully self-contained single files.
+ * gui: XAML bindings are compiled rather than reflection-resolved —
+   faster, and safe under trimming.
  * cli: `write-rom` now prints the flashed image's CRC32/MD5/SHA-1, matching
    the other read/write commands and the GUI/TUI, so you can confirm what
    was written against a known-good checksum.

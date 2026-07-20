@@ -39,10 +39,18 @@ for rid in "${RIDS[@]}"; do
     case "$rid:$proj" in osx-*:src/FlashKit.Gui)
       extra="-p:IncludeAllContentForSelfExtract=true" ;;
     esac
+    # PublishTrimmed drops the ~two-thirds of the runtime/BCL nothing here
+    # references (ICU, unused framework assemblies), cutting each binary by
+    # ~60%. Safe because: the CLI/TUI trim with zero IL warnings and were
+    # verified to run/render trimmed, and the GUI uses compiled bindings
+    # (see FlashKit.Gui.csproj) so no XAML binding is reflection-resolved.
+    # InvariantGlobalization lets the trimmer remove the ICU data outright.
     dotnet publish "$proj" -c Release -r "$rid" --self-contained \
       -p:PublishSingleFile=true \
       -p:EnableCompressionInSingleFile=true \
       -p:IncludeNativeLibrariesForSelfExtract=true \
+      -p:PublishTrimmed=true \
+      -p:InvariantGlobalization=true \
       -p:InformationalVersion="$VERSION" \
       $extra \
       -o "artifacts/$rid"

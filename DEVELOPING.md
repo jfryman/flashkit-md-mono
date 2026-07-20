@@ -28,6 +28,19 @@ If you publish by hand instead, keep
 native library lands next to the binary instead of inside it, and the
 binary alone cannot open any port (this bug has shipped twice).
 
+The published binaries are trimmed (`-p:PublishTrimmed=true`,
+`-p:InvariantGlobalization=true`), which drops each one by ~60% (the CLI
+from ~39 MB to ~13 MB) by removing the runtime/BCL code and ICU data
+nothing references. This is only safe because the GUI compiles its XAML
+bindings (`AvaloniaUseCompiledBindingsByDefault` in `FlashKit.Gui.csproj`);
+a reflection binding would emit an IL2026 trim warning and could be
+silently removed, blanking the transaction log. A trimmed publish must
+stay at **zero IL2026/IL2xxx warnings** — if one appears, fix it (usually
+add `x:DataType`/compiled bindings or a `DynamicDependency`) rather than
+suppressing it. The CLI and TUI trim clean and were verified to run and
+render trimmed; the only check that needs a real display is confirming the
+GUI window and log still render after a trimmed publish.
+
 ## Architecture
 
 The project is library-first: all device workflows live in

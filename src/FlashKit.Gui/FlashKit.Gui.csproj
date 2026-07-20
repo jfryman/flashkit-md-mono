@@ -13,6 +13,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\flashkit.ico</ApplicationIcon>
+    <!-- Compile XAML bindings (the TransactionEntry DataTemplate already
+         declares x:DataType) instead of resolving them by reflection. This
+         is faster and, crucially, trim-safe: reflection bindings emit IL2026
+         and can be silently dropped by the trimmer, blanking the log. -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
   <ItemGroup>
