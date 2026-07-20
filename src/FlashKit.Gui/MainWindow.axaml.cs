@@ -94,6 +94,7 @@ public partial class MainWindow : Window
         CartStatusText.Text = model.CartStatus;
         InfoName.Text = model.CartName;
         InfoSystem.Text = model.CartSystem;
+        InfoRegion.Text = model.CartRegion;
         InfoRomSize.Text = model.CartRomSize;
         InfoRamSize.Text = model.CartRamSize;
         InfoHeaderSize.Text = model.CartHeaderSize;

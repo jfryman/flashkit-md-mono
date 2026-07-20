@@ -25,6 +25,20 @@ public class FlashKitSessionTests
         Assert.True(info.CartDetected);
         Assert.False(info.Is32X);
         Assert.Equal("Mega Drive / Genesis", info.SystemName);
+        Assert.Equal("USA", info.Region);
+    }
+
+    [Theory]
+    [InlineData("U", "USA")]
+    [InlineData("J", "Japan")]
+    [InlineData("E", "Europe")]
+    [InlineData("JUE", "World")]  // multi-region string
+    [InlineData("F", "World")]    // hex region nibble (all regions)
+    public void GetInfo_reports_region_from_the_header(string regionField, string expected)
+    {
+        using var session = Connect(new FakeFlashKitDevice(TestRoms.MakeRom(0x80000, region: regionField)));
+
+        Assert.Equal(expected, session.GetInfo().Region);
     }
 
     [Theory]

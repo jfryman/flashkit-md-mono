@@ -62,6 +62,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
     string cartStatus = "—";
     string cartName = "—";
     string cartSystem = "—";
+    string cartRegion = "—";
     string cartRomSize = "—";
     string cartRamSize = "—";
     string cartHeaderSize = "—";
@@ -73,6 +74,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
     public string CartStatus { get => cartStatus; private set => Set(ref cartStatus, value); }
     public string CartName { get => cartName; private set => Set(ref cartName, value); }
     public string CartSystem { get => cartSystem; private set => Set(ref cartSystem, value); }
+    public string CartRegion { get => cartRegion; private set => Set(ref cartRegion, value); }
     public string CartRomSize { get => cartRomSize; private set => Set(ref cartRomSize, value); }
     public string CartRamSize { get => cartRamSize; private set => Set(ref cartRamSize, value); }
     public string CartHeaderSize { get => cartHeaderSize; private set => Set(ref cartHeaderSize, value); }
@@ -303,6 +305,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
             : info != null ? "No cartridge" : "—";
         CartName = present ? DisplayName(info!.RomName) : "—";
         CartSystem = present ? info!.SystemName : "—";
+        CartRegion = present ? info!.Region : "—";
         CartRomSize = present ? FormatKb(info!.RomBytes) : "—";
         CartRamSize = present ? FormatSize(info!.RamBytes) : "—";
         CartHeaderSize = present && info!.HeaderRomBytes is int hdr ? FormatKb(hdr) : "—";

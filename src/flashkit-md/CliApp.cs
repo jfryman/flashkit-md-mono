@@ -154,6 +154,7 @@ public sealed class CliApp
         var info = session.GetInfo();
         con.WriteLine("ROM name : " + info.RomName);
         con.WriteLine("System   : " + info.SystemName);
+        con.WriteLine("Region   : " + info.Region);
         con.WriteLine("ROM size : " + info.RomBytes / 1024 + "K");
         if (info.HeaderRomBytes is int h && h != info.RomBytes)
             con.WriteLine("Header ROM size : " + h / 1024 + "K (read-rom --trust-header dumps this extent)");

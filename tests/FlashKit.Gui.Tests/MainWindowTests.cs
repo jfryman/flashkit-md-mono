@@ -58,6 +58,7 @@ public class MainWindowTests : IDisposable
         Assert.Equal("Cartridge inserted", Text(window, "CartStatusText"));
         Assert.Equal("TEST GAME (U)", Text(window, "InfoName"));
         Assert.Equal("Mega Drive / Genesis", Text(window, "InfoSystem"));
+        Assert.Equal("USA", Text(window, "InfoRegion"));
         Assert.Equal("512K", Text(window, "InfoRomSize"));
         Assert.Equal("8K", Text(window, "InfoRamSize"));
         Assert.Equal("512K", Text(window, "InfoHeaderSize"));

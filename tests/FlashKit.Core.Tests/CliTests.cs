@@ -58,6 +58,7 @@ public class CliTests : IDisposable
         Assert.Contains("Connected to: FAKE", outText);
         Assert.Contains("ROM name : TEST GAME (U)", outText);
         Assert.Contains("System   : Mega Drive / Genesis", outText);
+        Assert.Contains("Region   : USA", outText);
         Assert.Contains("ROM size : 512K", outText);
         Assert.Contains("RAM size : 8K", outText);
     }

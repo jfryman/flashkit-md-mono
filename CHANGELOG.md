@@ -12,6 +12,9 @@ FEATURES:
    and auto-dumps alike). Note: the header does not reliably distinguish
    "Mega Drive" from "Genesis" branding — both strings appear on the
    same games — so they are reported as one system.
+ * core, cli, gui, tui: cart info now includes the Region (World / USA /
+   Japan / Europe) parsed from the header's 0x1F0 field, shown as a line
+   in `info` and a row in both UI cart panels.
 
 ## 1.6.1 (July 20, 2026)
 

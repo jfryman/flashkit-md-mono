@@ -42,6 +42,7 @@ public class ProgrammerTuiWindowTests : IDisposable
         Assert.Equal("Cartridge inserted", window.CartStatusLabel.Text);
         Assert.Equal("TEST GAME (U)", window.InfoName.Text);
         Assert.Equal("Mega Drive / Genesis", window.InfoSystem.Text);
+        Assert.Equal("USA", window.InfoRegion.Text);
         Assert.Equal("512K", window.InfoRomSize.Text);
         Assert.Equal("8K", window.InfoRamSize.Text);
         Assert.Equal("512K", window.InfoHeaderSize.Text);

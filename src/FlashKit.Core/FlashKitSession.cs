@@ -34,7 +34,8 @@ public sealed class FlashChipNotFoundException : Exception
 /// holds no plausible size — e.g. blank or partially programmed flash.
 /// <paramref name="RomBytes"/> is the mirror-probed size. <paramref name="Is32X"/>
 /// is true when the cart is a Sega 32X title (see <see cref="FlashKitSession"/>).</summary>
-public sealed record CartInfo(string RomName, int RomBytes, int RamBytes, int? HeaderRomBytes = null, bool Is32X = false)
+public sealed record CartInfo(string RomName, int RomBytes, int RamBytes, int? HeaderRomBytes = null,
+    bool Is32X = false, string Region = "Unknown")
 {
     /// <summary>False when the header was unreadable and mirror probing found
     /// nothing — the "Unknown (X) / 0K" signature an empty or unseated cart
@@ -99,7 +100,25 @@ public sealed class FlashKitSession : IDisposable
         Device.setDelay(1);
         var hdr = ReadHeader();
         return new CartInfo(Cart.getRomName(), Cart.getRomSize(), Cart.getRamSize(),
-            HeaderRomSize(hdr), IsThirtyTwoX(hdr));
+            HeaderRomSize(hdr), IsThirtyTwoX(hdr), RegionName(hdr));
+    }
+
+    /// <summary>Friendly region from the header's 0x1F0 field. Mirrors the
+    /// letter codes Cart.getRomRegion appends to the ROM name (W/U/J/E/X):
+    /// a first char differing from a meaningful second means multi-region.</summary>
+    internal static string RegionName(byte[] header)
+    {
+        byte val = header[0x1F0];
+        if (val != header[0x1F1] && header[0x1F1] != 0x20 && header[0x1F1] != 0)
+            return "World";
+        return val switch
+        {
+            (byte)'F' or (byte)'C' => "World",
+            (byte)'U' or (byte)'W' or (byte)'4' or 4 => "USA",
+            (byte)'J' or (byte)'B' or (byte)'1' or 1 => "Japan",
+            (byte)'E' or (byte)'A' or (byte)'8' or 8 => "Europe",
+            _ => "Unknown",
+        };
     }
 
     /// <summary>ROM size declared in the cart header, or null when the header

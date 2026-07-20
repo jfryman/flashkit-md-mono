@@ -64,6 +64,7 @@ public class ProgrammerTuiWindow : Window
     internal readonly Label CartStatusLabel = new() { Text = "" };
     internal readonly Label InfoName = new() { Text = "—" };
     internal readonly Label InfoSystem = new() { Text = "—" };
+    internal readonly Label InfoRegion = new() { Text = "—" };
     internal readonly Label InfoRomSize = new() { Text = "—" };
     internal readonly Label InfoRamSize = new() { Text = "—" };
     internal readonly Label InfoHeaderSize = new() { Text = "—" };
@@ -117,15 +118,16 @@ public class ProgrammerTuiWindow : Window
         Place(AutoWriteFileLabel, 2);
         autoWriteFrame.Add(ChkAutoWrite, BtnWriteFile, AutoWriteFileLabel);
 
-        var infoFrame = new FrameView { Title = "Cartridge", X = LeftWidth, Y = 0, Width = Dim.Fill(), Height = 7 };
+        var infoFrame = new FrameView { Title = "Cartridge", X = LeftWidth, Y = 0, Width = Dim.Fill(), Height = 8 };
         infoFrame.Add(
             Caption("Cartridge", 0), At(InfoName, 0),
             Caption("System", 1), At(InfoSystem, 1),
-            Caption("ROM size", 2), At(InfoRomSize, 2),
-            Caption("RAM size", 3), At(InfoRamSize, 3),
-            Caption("Header ROM size", 4), At(InfoHeaderSize, 4));
+            Caption("Region", 2), At(InfoRegion, 2),
+            Caption("ROM size", 3), At(InfoRomSize, 3),
+            Caption("RAM size", 4), At(InfoRamSize, 4),
+            Caption("Header ROM size", 5), At(InfoHeaderSize, 5));
 
-        var transFrame = new FrameView { Title = "Transactions", X = LeftWidth, Y = 7, Width = Dim.Fill(), Height = Dim.Fill(3) };
+        var transFrame = new FrameView { Title = "Transactions", X = LeftWidth, Y = 8, Width = Dim.Fill(), Height = Dim.Fill(3) };
         CardsHost.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
         CardsHost.ViewportChanged += (_, _) => UpdateCardsLayout();
         CardsHost.KeyDown += OnCardsHostKey;
@@ -213,6 +215,7 @@ public class ProgrammerTuiWindow : Window
         CartStatusLabel.Text = model.CartStatus;
         InfoName.Text = model.CartName;
         InfoSystem.Text = model.CartSystem;
+        InfoRegion.Text = model.CartRegion;
         InfoRomSize.Text = model.CartRomSize;
         InfoRamSize.Text = model.CartRamSize;
         InfoHeaderSize.Text = model.CartHeaderSize;
