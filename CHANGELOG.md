@@ -21,6 +21,11 @@ IMPROVEMENTS:
    including the transaction list on the right — Terminal.Gui's frames
    default to group navigation, which trapped Tab inside the current
    panel (the F6 group-hop key being the only way out).
+ * tui: status indicators are now colored with the GUI's palette —
+   green/gray device and cartridge dots, and per-card outcome bubbles
+   (amber running, green succeeded, red failed, gray cancelled) with
+   failed status text in red. The palette lives in the shared
+   presentation layer, so the two front-ends cannot drift apart.
  * tui: transactions are now bordered cards like the GUI's log entries —
    time, outcome glyph, and title in the border, the file path, the
    entry's OWN progress bar, and the full status line (complete MD5s,

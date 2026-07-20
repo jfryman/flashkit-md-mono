@@ -214,7 +214,9 @@ public class ProgrammerTuiWindowTests : IDisposable
         Assert.Equal("TEST GAME (U).bin", suggested);
         Assert.Equal(rom, File.ReadAllBytes(file));
         var card = Assert.Single(window.Cards);
-        Assert.Contains("✔ Read ROM", card.Title);
+        Assert.Contains("Read ROM", card.Title);
+        Assert.Equal("✔", card.Bubble.Text);
+        Assert.Equal(IndicatorColors.Success, card.Bubble.GetScheme().Normal.Foreground);
         Assert.Equal(file, card.DetailLabel.Text);
         Assert.StartsWith("OK — 512K, MD5 ", card.StatusLabel.Text);
         Assert.Equal(1f, card.Progress.Fraction); // own bar, filled on success
@@ -229,7 +231,9 @@ public class ProgrammerTuiWindowTests : IDisposable
         await window.ReadRomAsync();
 
         var card = Assert.Single(window.Cards);
-        Assert.Contains("○ Read ROM", card.Title);
+        Assert.Contains("Read ROM", card.Title);
+        Assert.Equal("○", card.Bubble.Text);
+        Assert.Equal(IndicatorColors.Neutral, card.Bubble.GetScheme().Normal.Foreground);
         Assert.Equal("Cancelled", card.StatusLabel.Text);
         Assert.True(window.BtnReadRom.Enabled);
     }
@@ -245,7 +249,10 @@ public class ProgrammerTuiWindowTests : IDisposable
         await window.WriteRomAsync();
 
         var card = Assert.Single(window.Cards);
-        Assert.Contains("✖ Write ROM", card.Title);
+        Assert.Contains("Write ROM", card.Title);
+        Assert.Equal("✖", card.Bubble.Text);
+        Assert.Equal(IndicatorColors.Failure, card.Bubble.GetScheme().Normal.Foreground);
+        Assert.Equal(IndicatorColors.Failure, card.StatusLabel.GetScheme().Normal.Foreground);
         Assert.Contains("No flash chip detected", card.StatusLabel.Text);
         Assert.True(window.BtnWriteRom.Enabled);
     }
@@ -264,7 +271,8 @@ public class ProgrammerTuiWindowTests : IDisposable
         await window.WriteRamAsync();
 
         var card = Assert.Single(window.Cards);
-        Assert.Contains("✔ Write RAM", card.Title);
+        Assert.Contains("Write RAM", card.Title);
+        Assert.Equal("✔", card.Bubble.Text);
         Assert.Contains("8192 words sent", card.StatusLabel.Text);
         for (int i = 0; i < 8192; i++) Assert.Equal(srm[i * 2 + 1], fake.Sram[i]);
     }
@@ -288,8 +296,9 @@ public class ProgrammerTuiWindowTests : IDisposable
         Assert.Equal(rom, File.ReadAllBytes(Path.Combine(dir, "TEST GAME (U).bin")));
         Assert.Equal(16384, new FileInfo(Path.Combine(dir, "TEST GAME (U).srm")).Length);
         Assert.Equal(2, window.Cards.Count); // newest first: RAM then ROM
-        Assert.Contains("✔ Auto-dump RAM", window.Cards[0].Title);
-        Assert.Contains("✔ Auto-dump ROM", window.Cards[1].Title);
+        Assert.Contains("Auto-dump RAM", window.Cards[0].Title);
+        Assert.Contains("Auto-dump ROM", window.Cards[1].Title);
+        Assert.All(window.Cards, c => Assert.Equal("✔", c.Bubble.Text));
 
         await window.RefreshAsync();
         Assert.Equal(2, window.Cards.Count); // same cart: no re-dump
@@ -366,7 +375,9 @@ public class ProgrammerTuiWindowTests : IDisposable
     {
         var entry = new TransactionEntry("Read ROM");
         var card = new TransactionCard(entry);
-        Assert.StartsWith(entry.Time + " ▶ Read ROM", card.Title);
+        Assert.Equal(entry.Time + " Read ROM", card.Title);
+        Assert.Equal("▶", card.Bubble.Text);
+        Assert.Equal(IndicatorColors.Running, card.Bubble.GetScheme().Normal.Foreground);
 
         entry.Detail = "/tmp/x/dump.bin";
         entry.ProgressMax = 100;
@@ -375,14 +386,17 @@ public class ProgrammerTuiWindowTests : IDisposable
         Assert.Equal(0.25f, card.Progress.Fraction);
 
         entry.Succeed("OK — 512K, MD5 AB-CD");
-        Assert.Contains("✔ Read ROM", card.Title);
+        Assert.Equal("✔", card.Bubble.Text);
+        Assert.Equal(IndicatorColors.Success, card.Bubble.GetScheme().Normal.Foreground);
         Assert.Equal("OK — 512K, MD5 AB-CD", card.StatusLabel.Text);
         Assert.Equal(1f, card.Progress.Fraction);
 
         var failed = new TransactionEntry("Write ROM");
         var failedCard = new TransactionCard(failed);
         failed.Fail("Verify error at 0");
-        Assert.Contains("✖ Write ROM", failedCard.Title);
+        Assert.Equal("✖", failedCard.Bubble.Text);
+        Assert.Equal(IndicatorColors.Failure, failedCard.Bubble.GetScheme().Normal.Foreground);
+        Assert.Equal(IndicatorColors.Failure, failedCard.StatusLabel.GetScheme().Normal.Foreground);
         Assert.Equal("Verify error at 0", failedCard.StatusLabel.Text);
     }
 }

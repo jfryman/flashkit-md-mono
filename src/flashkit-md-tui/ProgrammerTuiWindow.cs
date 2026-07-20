@@ -204,8 +204,10 @@ public class ProgrammerTuiWindow : Window
     void SyncFromModel()
     {
         DeviceDot.Text = model.DevicePresent ? "●" : "○";
+        IndicatorColors.Tint(DeviceDot, model.DevicePresent ? IndicatorColors.Success : IndicatorColors.Neutral);
         DeviceStatusLabel.Text = model.DeviceStatus;
         CartDot.Text = model.CartPresent ? "●" : "○";
+        IndicatorColors.Tint(CartDot, model.CartPresent ? IndicatorColors.Success : IndicatorColors.Neutral);
         CartStatusLabel.Text = model.CartStatus;
         InfoName.Text = model.CartName;
         InfoRomSize.Text = model.CartRomSize;

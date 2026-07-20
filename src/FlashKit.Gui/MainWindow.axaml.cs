@@ -22,8 +22,8 @@ public partial class MainWindow : Window
 {
     static readonly FilePickerFileType RomFiles = new("ROM image") { Patterns = new[] { "*.bin" } };
     static readonly FilePickerFileType SaveFiles = new("Save RAM") { Patterns = new[] { "*.srm" } };
-    static readonly IBrush PresentBrush = Brush.Parse("#3FB950");
-    static readonly IBrush AbsentBrush = Brush.Parse("#8B949E");
+    static readonly IBrush PresentBrush = Brush.Parse(StatusPalette.Success);
+    static readonly IBrush AbsentBrush = Brush.Parse(StatusPalette.Neutral);
 
     readonly ProgrammerModel model;
 
