@@ -4,6 +4,11 @@
 
 BUG FIXES:
 
+ * tui: opening the file picker for Read ROM/RAM corrupted the screen
+   (garbled title bar, stray borders). The picker's operation reaches
+   the dialog through a background-thread continuation, and running the
+   dialog's nested event loop off the main-loop thread mangled drawing;
+   dialogs now run through Application.Invoke on the main loop.
  * tui: the cartridge status in the bottom bar sat at a fixed column and
    overlapped the device status when the port name was long (macOS
    `/dev/cu.usbserial-…`); it now flows after the device text with

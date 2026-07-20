@@ -283,27 +283,50 @@ public class ProgrammerTuiWindow : Window
     IApplication RunningApp => app ?? throw new InvalidOperationException(
         "default prompts need the IApplication passed to the constructor");
 
-    Task<string?> DefaultPickSavePath(string suggestedName, PromptFileKind kind)
+    /// <summary>
+    /// Runs a modal dialog on the main-loop thread and returns its result.
+    /// The prompts are invoked from ProgrammerModel operations that reach
+    /// this point through `await Task.Run(...)` continuations, which do NOT
+    /// reliably resume on the UI thread — running Application.Run (a nested
+    /// event loop, drawing views) off that thread corrupts the display or
+    /// throws in layout. Application.Invoke marshals the dialog back onto
+    /// the main loop; the awaiting caller yields, so this never deadlocks.
+    /// </summary>
+    Task<T> OnMainLoop<T>(Func<T> runModal)
     {
-        using var d = new SaveDialog { Title = "Save " + Describe(kind) };
-        d.Path = suggestedName;
-        RunningApp.Run(d, null);
-        return Task.FromResult(DialogResult(d));
+        var tcs = new TaskCompletionSource<T>();
+        RunningApp.Invoke(() =>
+        {
+            try { tcs.SetResult(runModal()); }
+            catch (Exception ex) { tcs.SetException(ex); }
+        });
+        return tcs.Task;
     }
 
-    Task<string?> DefaultPickOpenPath(PromptFileKind kind)
-    {
-        using var d = new FileDialog { Title = "Open " + Describe(kind), OpenMode = OpenMode.File, MustExist = true };
-        RunningApp.Run(d, null);
-        return Task.FromResult(DialogResult(d));
-    }
+    Task<string?> DefaultPickSavePath(string suggestedName, PromptFileKind kind) =>
+        OnMainLoop<string?>(() =>
+        {
+            using var d = new SaveDialog { Title = "Save " + Describe(kind) };
+            d.Path = suggestedName;
+            RunningApp.Run(d, null);
+            return DialogResult(d);
+        });
 
-    Task<string?> DefaultPickFolder()
-    {
-        using var d = new FileDialog { Title = "Auto-dump folder", OpenMode = OpenMode.Directory, MustExist = true };
-        RunningApp.Run(d, null);
-        return Task.FromResult(DialogResult(d));
-    }
+    Task<string?> DefaultPickOpenPath(PromptFileKind kind) =>
+        OnMainLoop<string?>(() =>
+        {
+            using var d = new FileDialog { Title = "Open " + Describe(kind), OpenMode = OpenMode.File, MustExist = true };
+            RunningApp.Run(d, null);
+            return DialogResult(d);
+        });
+
+    Task<string?> DefaultPickFolder() =>
+        OnMainLoop<string?>(() =>
+        {
+            using var d = new FileDialog { Title = "Auto-dump folder", OpenMode = OpenMode.Directory, MustExist = true };
+            RunningApp.Run(d, null);
+            return DialogResult(d);
+        });
 
     static string Describe(PromptFileKind kind) =>
         kind == PromptFileKind.RomImage ? "ROM image (.bin)" : "save RAM (.srm)";
@@ -314,10 +337,13 @@ public class ProgrammerTuiWindow : Window
     Task<bool> DefaultConfirmAutoWrite()
     {
         if (AutoWriteWarning.Suppressed) return Task.FromResult(true);
-        int? choice = MessageBox.Query(RunningApp, AutoWriteWarning.Title, AutoWriteWarning.Text,
-            "Enable auto-write", "Enable, don't ask again", "Cancel");
-        if (choice == 1) AutoWriteWarning.Suppress();
-        return Task.FromResult(choice is 0 or 1);
+        return OnMainLoop(() =>
+        {
+            int? choice = MessageBox.Query(RunningApp, AutoWriteWarning.Title, AutoWriteWarning.Text,
+                "Enable auto-write", "Enable, don't ask again", "Cancel");
+            if (choice == 1) AutoWriteWarning.Suppress();
+            return choice is 0 or 1;
+        });
     }
 
     protected override void Dispose(bool disposing)
