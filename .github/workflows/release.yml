@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
       - name: Test
         run: ./ci.sh
       - name: Publish all targets
@@ -53,7 +53,7 @@ jobs:
             sign() { codesign --force -s - "$1"; }
           fi
           for rid in osx-x64 osx-arm64; do
-            for bin in flashkit-md flashkit-md-gui; do
+            for bin in flashkit-md flashkit-md-gui flashkit-md-tui; do
               sign "artifacts/$rid/$bin"
               codesign --verify "artifacts/$rid/$bin"
             done
@@ -80,7 +80,7 @@ jobs:
             xcrun notarytool submit "/tmp/notarize-app-$rid.zip" --wait \
               --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
             xcrun stapler staple "artifacts/$rid/FlashKit MD.app"
-            zip -j "/tmp/notarize-cli-$rid.zip" "artifacts/$rid/flashkit-md" "artifacts/$rid/flashkit-md-gui"
+            zip -j "/tmp/notarize-cli-$rid.zip" "artifacts/$rid/flashkit-md" "artifacts/$rid/flashkit-md-gui" "artifacts/$rid/flashkit-md-tui"
             xcrun notarytool submit "/tmp/notarize-cli-$rid.zip" --wait \
               --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
           done
@@ -95,7 +95,7 @@ jobs:
           fi
           brew install --quiet osslsigncode
           echo "$WINDOWS_CERT_PFX_BASE64" | base64 --decode > /tmp/win.pfx
-          for exe in flashkit-md flashkit-md-gui; do
+          for exe in flashkit-md flashkit-md-gui flashkit-md-tui; do
             osslsigncode sign -pkcs12 /tmp/win.pfx -pass "$WINDOWS_CERT_PASSWORD" \
               -n "FlashKit MD" -i "https://github.com/jfryman/flashkit-md-dotnet" \
               -t "http://timestamp.digicert.com" \
@@ -107,12 +107,12 @@ jobs:
         run: |
           mkdir -p dist
           for rid in linux-x64 linux-arm64 osx-x64 osx-arm64; do
-            tar -C "artifacts/$rid" -czf "dist/flashkit-md-$GITHUB_REF_NAME-$rid.tar.gz" flashkit-md flashkit-md-gui
+            tar -C "artifacts/$rid" -czf "dist/flashkit-md-$GITHUB_REF_NAME-$rid.tar.gz" flashkit-md flashkit-md-gui flashkit-md-tui
           done
           for rid in osx-x64 osx-arm64; do
             ditto -c -k --keepParent "artifacts/$rid/FlashKit MD.app" "dist/FlashKit-MD.app-$GITHUB_REF_NAME-$rid.zip"
           done
-          (cd artifacts/win-x64 && zip -q "$GITHUB_WORKSPACE/dist/flashkit-md-$GITHUB_REF_NAME-win-x64.zip" flashkit-md.exe flashkit-md-gui.exe)
+          (cd artifacts/win-x64 && zip -q "$GITHUB_WORKSPACE/dist/flashkit-md-$GITHUB_REF_NAME-win-x64.zip" flashkit-md.exe flashkit-md-gui.exe flashkit-md-tui.exe)
           (cd dist && shasum -a 256 * > SHA256SUMS)
       - name: Extract release notes from CHANGELOG.md
         run: |
@@ -152,7 +152,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
       - name: Publish ${{ matrix.rid }} and stage for the manifest
         run: |
           VERSION="${GITHUB_REF_NAME#v}" RIDS=${{ matrix.rid }} ./publish.sh

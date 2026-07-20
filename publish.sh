@@ -11,7 +11,7 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 
 RIDS=(${RIDS:-linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64})
 
-PROJECTS=(src/flashkit-md src/FlashKit.Gui)
+PROJECTS=(src/flashkit-md src/FlashKit.Gui src/flashkit-md-tui)
 
 # Version stamped into the binaries (--version, GUI title, Info.plist).
 # Local/branch builds get git describe (tag, or tag-N-gSHA[-dirty] off a
@@ -20,6 +20,9 @@ VERSION="${VERSION:-$(git describe --tags --always --dirty | sed 's/^v//')}"
 echo "version: $VERSION"
 
 for rid in "${RIDS[@]}"; do
+  # Start clean: stale files from older publishes (with different embed
+  # flags) would otherwise trip the stray-native-lib check below or ship.
+  rm -rf "artifacts/$rid"
   for proj in "${PROJECTS[@]}"; do
     echo "== publishing $proj for $rid =="
     # IncludeNativeLibrariesForSelfExtract: without it, native libs such as

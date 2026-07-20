@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Cross-platform .NET 8 port of krikzz's FlashKit MD programmer client
+Cross-platform .NET 10 port of krikzz's FlashKit MD programmer client
 (Sega Mega Drive / Genesis cart dumper/flasher). See docs/porting-plan.md
 for the (completed, archived) staged porting plan and
 docs/hardware-validation.md for real-hardware results.
@@ -25,7 +25,7 @@ rules agents must follow.
 ./publish.sh   # self-contained single-file binaries into artifacts/<rid>/
 ```
 
-The .NET 8 SDK is user-installed at `~/.dotnet` and NOT on the default PATH.
+The .NET 10 SDK is user-installed at `~/.dotnet` and NOT on the default PATH.
 Both scripts handle that; for ad-hoc commands use
 `export PATH="$HOME/.dotnet:$PATH"`.
 
@@ -55,8 +55,8 @@ if the section is missing.
     ReadRam/WriteRam/BakeSave. Synchronous, progress via
     `Action<OperationProgress>` (each phase starts with Done=0),
     `VerifyException` on read-back mismatch, no console/file I/O.
-- `src/FlashKit.Presentation/` — shared presentation model for interactive
-  front-ends (GUI now, TUI next). `ProgrammerModel` owns ALL interactive
+- `src/FlashKit.Presentation/` — shared presentation model for the
+  interactive front-ends (GUI and TUI). `ProgrammerModel` owns ALL interactive
   behavior: held-session lifetime (the macOS tcdrain-wedge fix), the
   device gate, the poll state machine, auto-dump/auto-write (including the
   deliberately-not-identity-keyed insertion logic), the transaction log,
@@ -70,6 +70,12 @@ if the section is missing.
   StorageProvider pickers, drives the poll timer. Headless tests in
   `tests/FlashKit.Gui.Tests` drive the window against the fake device via
   the connector/file-picker seams in MainWindow.
+- `src/flashkit-md-tui/` — Terminal.Gui adapter over ProgrammerModel,
+  same panel roles and seams as the GUI. Terminal.Gui views work without
+  Application.Init, so `tests/FlashKit.Tui.Tests` need no driver or main
+  loop. Note: production threading relies on Terminal.Gui's main-loop
+  SynchronizationContext (installed by Application.Init), mirroring
+  Avalonia's dispatcher — keep model calls on the UI thread.
 - `flashkit-md-src.zip` — pristine original Windows source (WinForms,
   .NET 4) as distributed by krikzz. Never modify; unzip elsewhere when a
   diff against the original is needed.

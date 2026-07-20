@@ -3,7 +3,8 @@
 Cross-platform (Linux / macOS / Windows) client for
 [krikzz's FlashKit MD programmer](https://krikzz.com/our-products/accessories/flashkitmd.html)
 — dump and flash Sega Mega Drive / Genesis cartridges. Ships as a desktop
-GUI (`flashkit-md-gui`) and a CLI (`flashkit-md`).
+GUI (`flashkit-md-gui`), a terminal UI (`flashkit-md-tui`), and a CLI
+(`flashkit-md`).
 
 ![FlashKit MD GUI](docs/images/gui.png)
 
@@ -49,7 +50,8 @@ flatpak run io.github.jfryman.FlashKitMD
 ```
 
 **Tarball** (x86_64, arm64): `flashkit-md-vX.Y.Z-linux-{x64,arm64}.tar.gz`
-holds the `flashkit-md` CLI and `flashkit-md-gui` binaries — untar and run.
+holds the `flashkit-md` CLI, `flashkit-md-gui`, and `flashkit-md-tui`
+binaries — untar and run.
 
 Either way, your user needs access to the programmer's serial port. If you
 get "Access to the port ... is denied", add yourself to the serial group
@@ -68,6 +70,14 @@ or install the udev rule in
 Download `flashkit-md-vX.Y.Z-win-x64.zip` and unzip; run
 `flashkit-md-gui.exe` (GUI) or `flashkit-md.exe` (CLI). If SmartScreen
 warns about an unrecognized app, choose "More info" → "Run anyway".
+
+## Using the TUI
+
+`flashkit-md-tui` is the GUI's terminal sibling for SSH sessions and
+keyboard-first workflows: the same live device/cartridge status, cart info
+panel, transaction log, and auto-dump/auto-write panels, rendered with
+[Terminal.Gui](https://github.com/tui-cs/Terminal.Gui). Tab moves between
+controls, Enter activates, and file prompts open an in-terminal browser.
 
 ## Using the GUI
 

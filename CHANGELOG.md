@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+FEATURES:
+
+ * tui: new `flashkit-md-tui` terminal front-end (Terminal.Gui) — the
+   GUI's keyboard-first sibling for SSH sessions, with the same live
+   device/cart status, cart info panel, transaction log with progress,
+   auto-dump/auto-write panels, and destructive-action warning. Ships in
+   the release tarballs and Windows zip alongside the CLI and GUI.
+
+IMPROVEMENTS:
+
+ * core: interactive behavior (held-session lifetime, poll state machine,
+   auto actions, transaction log) extracted from the GUI into a shared
+   FlashKit.Presentation library; the GUI and TUI are now thin adapters
+   over the same ProgrammerModel, so they behave and word things
+   identically.
+ * release: toolchain moved to .NET 10 LTS (net8 support ends November
+   2026); release binaries remain self-contained so nothing changes for
+   users.
+ * gui: Avalonia updated 11.3.2 -> 11.3.18, clearing a known
+   vulnerability (GHSA-xrw6-gwf8-vvr9) in the transitive
+   Tmds.DBus.Protocol dependency.
+ * release: publish.sh now cleans each RID's output directory first, so
+   stale files from older publishes cannot trip the stray-native-lib
+   check or ship by accident.
+
 ## 1.5.4 (July 18, 2026)
 
 IMPROVEMENTS:

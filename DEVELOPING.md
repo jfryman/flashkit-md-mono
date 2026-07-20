@@ -7,7 +7,7 @@ from — keep the three in sync when things change.
 
 ## Building and testing
 
-Requires the .NET 8 SDK.
+Requires the .NET 10 SDK.
 
 ```
 ./ci.sh        # restore + build (warnings as errors) + all tests, a few seconds
@@ -28,8 +28,10 @@ binary alone cannot open any port (this bug has shipped twice).
 ## Architecture
 
 The project is library-first: all device workflows live in
-`FlashKit.Core` and the front-ends only render them — the CLI and the
-Avalonia GUI build on the same tested code.
+`FlashKit.Core` and the front-ends only render them — the CLI, the
+Avalonia GUI, and the Terminal.Gui TUI build on the same tested code.
+The GUI and TUI additionally share `FlashKit.Presentation`, so the two
+interactive front-ends have identical behavior and wording.
 
 - `src/FlashKit.Core/` — the library.
   - `Device`/`Cart`: serial protocol and cart logic, **ported verbatim**
@@ -44,16 +46,26 @@ Avalonia GUI build on the same tested code.
     synchronous, report progress via an `Action<OperationProgress>`
     callback, throw `VerifyException` on read-back mismatches, and do no
     console or file I/O.
-- `src/flashkit-md/` — the CLI: argument parsing, file I/O, rendering.
-- `src/FlashKit.Gui/` — the Avalonia GUI over `FlashKitSession`:
-  device/cart status polling, transaction log, auto-dump/auto-write.
-  Operations run on a worker thread; one serial session is held while the
-  programmer is reachable (see the FTDI note below).
+- `src/FlashKit.Presentation/` — shared presentation model for the
+  interactive front-ends: `ProgrammerModel` owns device/cart status
+  polling, the held serial session (see the FTDI note below), the
+  transaction log, and auto-dump/auto-write, exposing
+  `INotifyPropertyChanged` state and asking for user decisions through
+  `IUserPrompts`. Operations run on a worker thread internally.
+- `src/flashkit-md/` — the CLI: argument parsing, file I/O, rendering
+  over `FlashKitSession` directly.
+- `src/FlashKit.Gui/` — the Avalonia adapter over `ProgrammerModel`:
+  renders model properties into controls, implements `IUserPrompts` with
+  StorageProvider pickers, drives the poll timer.
+- `src/flashkit-md-tui/` — the Terminal.Gui adapter over
+  `ProgrammerModel`, same panel roles and prompt seams as the GUI.
 - `tests/FlashKit.Core.Tests/` — wire-format tests locked to the original
   protocol, plus behavior/e2e tests against `FakeFlashKitDevice`, an
   in-memory emulation of the programmer firmware and a synthetic cart.
 - `tests/FlashKit.Gui.Tests/` — headless Avalonia tests driving the real
   window against the fake device.
+- `tests/FlashKit.Tui.Tests/` — the TUI equivalent; Terminal.Gui views
+  work without a driver, so these need no main loop at all.
 
 ### Testing rules
 
