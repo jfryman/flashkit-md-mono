@@ -161,8 +161,7 @@ See [DEVELOPING.md](DEVELOPING.md).
 The FlashKit MD hardware and the original client are by
 [krikzz](https://krikzz.com/) and published at
 [github.com/krikzz/flashkit](https://github.com/krikzz/flashkit) under the
-MIT license. The original client source as distributed is included
-unmodified in `flashkit-md-src.zip`. This port is likewise MIT-licensed
+MIT license. This port is likewise MIT-licensed
 (see [`LICENSE`](LICENSE)), retaining krikzz's copyright notice.
 
 Thanks also to [joeyparrish/flashkit-md-py](https://github.com/joeyparrish/flashkit-md-py),

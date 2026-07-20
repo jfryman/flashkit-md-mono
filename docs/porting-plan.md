@@ -21,8 +21,8 @@ Port krikzz's FlashKit MD programmer client (C# WinForms, .NET Framework 4.0)
 to a cross-platform .NET 8 CLI that runs on Linux, macOS (Intel + Apple
 Silicon), and Windows, preserving the original's serial protocol behavior.
 
-The original source lives in `flashkit-md-src.zip` (unzip when needed for
-reference and diffing; the pristine import is also in git history). The
+The original source lives at https://github.com/krikzz/flashkit (the
+pristine import is also in this repo's git history). The
 three files that matter:
 
 - `Device.cs` — serial protocol to the programmer (6 commands: addr, len,

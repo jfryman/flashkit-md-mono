@@ -45,8 +45,10 @@ if the section is missing.
 - `src/FlashKit.Core/` — everything; front-ends only render.
   - `Device.cs` / `Cart.cs`: serial protocol + cart logic, ported VERBATIM
     from the original client (lowercase method names and all). Keep them
-    diffable against the original source in `flashkit-md-src.zip` (unzip
-    to compare); behavior changes belong in separate commits with tests,
+    diffable against the original source at
+    https://github.com/krikzz/flashkit (flashkit-md/; also preserved in
+    this repo's history, commit "Import pristine FlashKit MD v1.0.0.0
+    source"); behavior changes belong in separate commits with tests,
     or in FlashKitSession.
   - `DeviceConnector` / `PortDiscovery`: per-OS port scanning with
     surfaced errors (Linux: ttyACM*/ttyUSB*; macOS: cu.usbmodem*/
@@ -76,9 +78,12 @@ if the section is missing.
   loop. Note: production threading relies on Terminal.Gui's main-loop
   SynchronizationContext (installed by Application.Init), mirroring
   Avalonia's dispatcher — keep model calls on the UI thread.
-- `flashkit-md-src.zip` — pristine original Windows source (WinForms,
-  .NET 4) as distributed by krikzz. Never modify; unzip elsewhere when a
-  diff against the original is needed.
+- Original Windows client source (WinForms, .NET 4): upstream at
+  https://github.com/krikzz/flashkit. NOT in the working tree; the
+  pristine import survives in git history if an offline diff is needed.
+- NEVER commit ROM dumps or saves: `dumps/` and root `*.bin` are
+  gitignored, and `git add -A` once swept loose ROMs into a pushed
+  commit that had to be history-rewritten away. Keep dumps in `dumps/`.
 
 ## Testing rules
 

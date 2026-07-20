@@ -99,7 +99,7 @@ see the warning below):
    exits cleanly too.
 5. (bonus, high value) Cross-check against the ORIGINAL krikzz client —
    only possible on Windows. Get the original FlashKit MD client from
-   krikzz.com (or build it from `flashkit-md-src.zip` in the repo; the
+   krikzz.com (or build it from https://github.com/krikzz/flashkit; the
    binary itself is not checked in), dump the same cart with it, and
    compare MD5s against this port's dump. A match clears the (*) caveat
    on item 2 for ALL platforms, since the Linux and macOS dumps are

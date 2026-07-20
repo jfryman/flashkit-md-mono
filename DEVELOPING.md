@@ -37,7 +37,8 @@ interactive front-ends have identical behavior and wording.
   - `Device`/`Cart`: serial protocol and cart logic, **ported verbatim**
     from the original client (lowercase method names and all) behind an
     `ISerialPort` seam. They are kept diffable against the original
-    source in `flashkit-md-src.zip`; behavior changes belong in
+    source at [github.com/krikzz/flashkit](https://github.com/krikzz/flashkit)
+    (`flashkit-md/`); behavior changes belong in
     `FlashKitSession` or in separate commits with tests.
   - `DeviceConnector`/`PortDiscovery`: cross-platform port discovery with
     surfaced per-port errors.
