@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using FlashKit.Core;
 
 namespace flashkit_md;
@@ -246,7 +245,7 @@ public sealed class CliApp
             con.WriteLine("Applied IPS patch " + applyPatchFile);
         }
         File.WriteAllBytes(outPath, dump);
-        PrintMD5(dump);
+        PrintHashes(dump);
         con.WriteLine("OK");
     }
 
@@ -274,7 +273,7 @@ public sealed class CliApp
         con.WriteLine("Read RAM to " + path);
         PrintRamSize(ram.Length / 2);
         File.WriteAllBytes(path, ram);
-        PrintMD5(ram);
+        PrintHashes(ram);
         con.WriteLine("OK");
     }
 
@@ -285,7 +284,7 @@ public sealed class CliApp
         int words = session.WriteRam(ram, RenderProgress(phase =>
             phase == OperationPhase.Verify ? "Verify..." : null, percentages: false));
         con.WriteLine("" + words + " words sent");
-        PrintMD5(ram);
+        PrintHashes(ram);
         con.WriteLine("OK");
     }
 
@@ -295,7 +294,7 @@ public sealed class CliApp
         con.WriteLine("Bake save into flash at 0x200000...");
         session.BakeSave(srm, skipFlashCheck: noFlashCheck, progress: RenderProgress(phase =>
             phase == OperationPhase.Verify ? "Verify..." : null));
-        PrintMD5(srm);
+        PrintHashes(srm);
         con.WriteLine("Note: baked saves are a read-only snapshot; in-game saving will not persist.");
         con.WriteLine("OK");
     }
@@ -324,8 +323,10 @@ public sealed class CliApp
         };
     }
 
-    void PrintMD5(byte[] buff)
+    void PrintHashes(byte[] buff)
     {
-        con.WriteLine("MD5: " + BitConverter.ToString(MD5.HashData(buff)));
+        con.WriteLine("CRC32: " + RomHash.Crc32(buff));
+        con.WriteLine("MD5: " + RomHash.Md5(buff));
+        con.WriteLine("SHA-1: " + RomHash.Sha1(buff));
     }
 }

@@ -195,7 +195,10 @@ public class MainWindowTests : IDisposable
         var entry = Assert.Single(window.Log);
         Assert.Equal("Read ROM", entry.Title);
         Assert.Equal(file, entry.Detail);
-        Assert.StartsWith("OK — 512K, MD5 ", entry.Status);
+        Assert.StartsWith("OK — 512K", entry.Status);
+        Assert.Contains("CRC32 ", entry.Status);
+        Assert.Contains("MD5 ", entry.Status);
+        Assert.Contains("SHA-1 ", entry.Status);
         Assert.True(entry.Succeeded);
         Assert.False(entry.Failed);
         Assert.False(entry.Running);
@@ -229,7 +232,10 @@ public class MainWindowTests : IDisposable
         Assert.Equal(16384, new FileInfo(file).Length);
         var entry = Assert.Single(window.Log);
         Assert.Equal("Read RAM", entry.Title);
-        Assert.StartsWith("OK — 8K, MD5 ", entry.Status);
+        Assert.StartsWith("OK — 8K", entry.Status);
+        Assert.Contains("CRC32 ", entry.Status);
+        Assert.Contains("MD5 ", entry.Status);
+        Assert.Contains("SHA-1 ", entry.Status);
     }
 
     [AvaloniaFact]
@@ -274,7 +280,10 @@ public class MainWindowTests : IDisposable
         Assert.Contains("Flash erase...", statuses);
         Assert.Contains("Flash write...", statuses);
         Assert.Contains("Flash verify...", statuses);
-        Assert.StartsWith("OK — 128K written, MD5 ", window.Log[0].Status);
+        Assert.StartsWith("OK — 128K written", window.Log[0].Status);
+        Assert.Contains("CRC32 ", window.Log[0].Status);
+        Assert.Contains("MD5 ", window.Log[0].Status);
+        Assert.Contains("SHA-1 ", window.Log[0].Status);
         Assert.Equal(image, fake.Rom.Take(image.Length));
     }
 
@@ -350,7 +359,10 @@ public class MainWindowTests : IDisposable
         await window.WriteRamAsync();
 
         var entry = Assert.Single(window.Log);
-        Assert.StartsWith("OK — 8192 words sent, MD5 ", entry.Status);
+        Assert.StartsWith("OK — 8192 words sent", entry.Status);
+        Assert.Contains("CRC32 ", entry.Status);
+        Assert.Contains("MD5 ", entry.Status);
+        Assert.Contains("SHA-1 ", entry.Status);
         for (int i = 0; i < 8192; i++) Assert.Equal(srm[i * 2 + 1], fake.Sram[i]);
     }
 

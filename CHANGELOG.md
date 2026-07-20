@@ -11,7 +11,14 @@ FEATURES:
    (`read-rom --create-patch <base>`, or the panel's "Create patch"). The
    IpsPatch core (apply + create, literal/RLE records, the truncation
    extension) is fully unit-tested including a create/apply round-trip
-   over random fuzzing. Build scripts moved to eng/.
+   over random fuzzing, and validated on hardware against Ghostbusters +
+   the Special Edition patch. Build scripts moved to eng/.
+
+IMPROVEMENTS:
+
+ * cli, gui, tui: dumps and writes now report CRC32 and SHA-1 alongside
+   MD5, in the compact uppercase hex form No-Intro / romhacking.net
+   quote, so a dump can be checked against a database.
 
 ## 1.7.0 (July 20, 2026)
 

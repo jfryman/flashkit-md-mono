@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 using FlashKit.Core;
 
 namespace FlashKit.Presentation;
@@ -353,7 +352,10 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
 
     static string FormatKb(int bytes) => bytes / 1024 + "K";
     static string FormatSize(int bytes) => bytes < 1024 ? bytes + "B" : bytes / 1024 + "K";
-    static string Md5(byte[] buff) => BitConverter.ToString(MD5.HashData(buff));
+    // Identity hashes appended to a transaction result, one per line, in
+    // the compact uppercase form No-Intro / romhacking.net quote.
+    static string HashBlock(byte[] data) =>
+        $"\nCRC32 {RomHash.Crc32(data)}\nMD5 {RomHash.Md5(data)}\nSHA-1 {RomHash.Sha1(data)}";
 
     // --- operations ------------------------------------------------------
 
@@ -448,7 +450,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
         var rom = await Task.Run(() => session.ReadRom(p => progress.Report(p)));
         if (patchPath != null) rom = IpsPatch.Apply(rom, await File.ReadAllBytesAsync(patchPath));
         await File.WriteAllBytesAsync(path, rom);
-        entry.Succeed($"OK — {rom.Length / 1024}K{PatchedSuffix(patchPath)}, MD5 {Md5(rom)}");
+        entry.Succeed($"OK — {rom.Length / 1024}K{PatchedSuffix(patchPath)}{HashBlock(rom)}");
     }
 
     public Task WriteRomAsync() => RunOperation("Write ROM", async (session, entry) =>
@@ -474,7 +476,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
             _ => null,
         });
         await Task.Run(() => session.WriteRom(rom, progress: p => progress.Report(p)));
-        entry.Succeed($"OK — {rom.Length / 1024}K written{PatchedSuffix(patchPath)}, MD5 {Md5(rom)}");
+        entry.Succeed($"OK — {rom.Length / 1024}K written{PatchedSuffix(patchPath)}{HashBlock(rom)}");
     }
 
     // Names the applied patch in the transaction result so it is obvious the
@@ -524,7 +526,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
         entry.Status = "Reading RAM...";
         var ram = await Task.Run(session.ReadRam);
         await File.WriteAllBytesAsync(path, ram);
-        entry.Succeed($"OK — {FormatSize(ram.Length / 2)}, MD5 {Md5(ram)}");
+        entry.Succeed($"OK — {FormatSize(ram.Length / 2)}{HashBlock(ram)}");
     }
 
     public Task WriteRamAsync() => RunOperation("Write RAM", async (session, entry) =>
@@ -543,7 +545,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
             _ => null,
         });
         int words = await Task.Run(() => session.WriteRam(ram, p => progress.Report(p)));
-        entry.Succeed($"OK — {words} words sent, MD5 {Md5(ram)}");
+        entry.Succeed($"OK — {words} words sent{HashBlock(ram)}");
     });
 
     public void Dispose() => DisposeSession();

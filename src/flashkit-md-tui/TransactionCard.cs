@@ -13,14 +13,16 @@ namespace FlashKit.Tui;
 /// </summary>
 internal sealed class TransactionCard : FrameView
 {
-    public const int CardHeight = 5; // 3 content rows + border
+    // Detail + progress + a status that runs up to 4 lines (the "OK — size"
+    // result plus a CRC32/MD5/SHA-1 line each), inside the border.
+    public const int CardHeight = 8;
 
     public TransactionEntry Entry { get; }
 
     internal readonly Label Bubble = new() { Text = "▶", X = 0, Y = 0 };
     internal readonly Label DetailLabel = new() { Text = "", X = 2, Y = 0, Width = Dim.Fill() };
     internal readonly ProgressBar Progress = new() { X = 0, Y = 1, Width = Dim.Fill() };
-    internal readonly Label StatusLabel = new() { Text = "", X = 0, Y = 2, Width = Dim.Fill() };
+    internal readonly Label StatusLabel = new() { Text = "", X = 0, Y = 2, Width = Dim.Fill(), Height = Dim.Fill() };
 
     public TransactionCard(TransactionEntry entry)
     {

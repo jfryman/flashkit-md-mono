@@ -328,7 +328,10 @@ public class ProgrammerTuiWindowTests : IDisposable
         Assert.Equal("✔", card.Bubble.Text);
         Assert.Equal(IndicatorColors.Success, card.Bubble.GetScheme().Normal.Foreground);
         Assert.Equal(file, card.DetailLabel.Text);
-        Assert.StartsWith("OK — 512K, MD5 ", card.StatusLabel.Text);
+        Assert.StartsWith("OK — 512K", card.StatusLabel.Text);
+        Assert.Contains("CRC32 ", card.StatusLabel.Text);
+        Assert.Contains("MD5 ", card.StatusLabel.Text);
+        Assert.Contains("SHA-1 ", card.StatusLabel.Text);
         Assert.Equal(1f, card.Progress.Fraction); // own bar, filled on success
     }
 

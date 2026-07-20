@@ -102,7 +102,9 @@ public class CliTests : IDisposable
 
         Assert.Equal(0, exit);
         Assert.Equal(rom, File.ReadAllBytes(file));
+        Assert.Contains("CRC32: ", stdout.ToString());
         Assert.Contains("MD5: ", stdout.ToString());
+        Assert.Contains("SHA-1: ", stdout.ToString());
         Assert.Contains("OK", stdout.ToString());
     }
 
