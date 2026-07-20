@@ -20,10 +20,16 @@ public sealed class CliApp
               --trust-header dump the size the ROM header declares instead
                              of the mirror-probed size (useful on flash
                              carts, where probing can misjudge the extent)
+              --apply-patch <ips>   apply an IPS patch to the dump before
+                             saving
+              --create-patch <base>   diff the dump against <base> and write
+                             an IPS patch instead of the ROM (default file:
+                             <ROM name>.ips)
           write-rom <file>   erase flash cart and write ROM image
               --full-erase   erase the entire 4 MB chip first, so no stale
                              data above the image shows up as ghost saves
                              (only for carts with a full-size 4 MB chip)
+              --patch <ips>  apply an IPS patch to the image before flashing
               --no-flash-check   skip the CFI flash-presence check that
                              write-rom and bake-save run before erasing
           read-ram [file]    dump save RAM (default file: <ROM name>.srm)
@@ -51,34 +57,48 @@ public sealed class CliApp
         string? portName = null;
         string? command = null;
         string? file = null;
+        string? patchFile = null;
+        string? applyPatchFile = null;
+        string? createPatchBase = null;
         bool fullErase = false;
         bool trustHeader = false;
         bool noFlashCheck = false;
 
         for (int i = 0; i < args.Length; i++)
         {
-            if (args[i] == "--version")
+            string arg = args[i];
+            if (arg == "--version")
             {
                 con.WriteLine("flashkit-md " + VersionInfo.ClientVersion);
                 return 0;
             }
-            if (args[i] == "--port")
+
+            // Value flags: consume the following argument.
+            string? flag = arg is "--port" or "--patch" or "--apply-patch" or "--create-patch" ? arg : null;
+            if (flag != null)
             {
                 if (i + 1 >= args.Length)
                 {
-                    err.WriteLine("--port requires a value");
+                    err.WriteLine(flag + " requires a value");
                     return 2;
                 }
-                portName = args[++i];
+                string value = args[++i];
+                switch (flag)
+                {
+                    case "--port": portName = value; break;
+                    case "--patch": patchFile = value; break;
+                    case "--apply-patch": applyPatchFile = value; break;
+                    case "--create-patch": createPatchBase = value; break;
+                }
             }
-            else if (args[i] == "--full-erase") fullErase = true;
-            else if (args[i] == "--trust-header") trustHeader = true;
-            else if (args[i] == "--no-flash-check") noFlashCheck = true;
-            else if (command == null) command = args[i];
-            else if (file == null) file = args[i];
+            else if (arg == "--full-erase") fullErase = true;
+            else if (arg == "--trust-header") trustHeader = true;
+            else if (arg == "--no-flash-check") noFlashCheck = true;
+            else if (command == null) command = arg;
+            else if (file == null) file = arg;
             else
             {
-                err.WriteLine("unexpected argument: " + args[i]);
+                err.WriteLine("unexpected argument: " + arg);
                 return 2;
             }
         }
@@ -101,6 +121,24 @@ public sealed class CliApp
             return 2;
         }
 
+        if (patchFile != null && command != "write-rom")
+        {
+            err.WriteLine("--patch only applies to write-rom");
+            return 2;
+        }
+
+        if ((applyPatchFile != null || createPatchBase != null) && command != "read-rom")
+        {
+            err.WriteLine("--apply-patch and --create-patch only apply to read-rom");
+            return 2;
+        }
+
+        if (applyPatchFile != null && createPatchBase != null)
+        {
+            err.WriteLine("--apply-patch and --create-patch are mutually exclusive");
+            return 2;
+        }
+
         if (command is "write-rom" or "write-ram" or "bake-save" && file == null)
         {
             err.WriteLine(command + " requires a file");
@@ -114,9 +152,9 @@ public sealed class CliApp
                 case "info":
                     return WithSession(portName, Info);
                 case "read-rom":
-                    return WithSession(portName, session => ReadRom(session, file, trustHeader));
+                    return WithSession(portName, session => ReadRom(session, file, trustHeader, applyPatchFile, createPatchBase));
                 case "write-rom":
-                    return WithSession(portName, session => WriteRom(session, file!, fullErase, noFlashCheck));
+                    return WithSession(portName, session => WriteRom(session, file!, fullErase, noFlashCheck, patchFile));
                 case "read-ram":
                     return WithSession(portName, session => ReadRam(session, file));
                 case "write-ram":
@@ -173,26 +211,53 @@ public sealed class CliApp
         }
     }
 
-    void ReadRom(FlashKitSession session, string? file, bool trustHeader)
+    void ReadRom(FlashKitSession session, string? file, bool trustHeader,
+        string? applyPatchFile, string? createPatchBase)
     {
-        string path = file ?? session.SuggestedRomFileName();
-        con.WriteLine("Read ROM to " + path);
         int? size = null;
         if (trustHeader)
         {
             size = session.ReadHeaderRomSize();
             if (size == null) con.WriteLine("Header declares no plausible ROM size; using probed size");
         }
-        byte[] rom = session.ReadRom(RenderProgress(), size);
-        con.WriteLine("ROM size : " + rom.Length / 1024 + "K" + (size != null ? " (from header)" : ""));
-        File.WriteAllBytes(path, rom);
-        PrintMD5(rom);
+
+        if (createPatchBase != null)
+        {
+            // Dump the cart and write the diff against the base as an .ips;
+            // the product is the patch, so the raw dump is not saved.
+            string path = file ?? session.GetRomName() + ".ips";
+            con.WriteLine("Read ROM and diff against " + createPatchBase);
+            byte[] rom = session.ReadRom(RenderProgress(), size);
+            byte[] baseRom = File.ReadAllBytes(createPatchBase);
+            byte[] patch = IpsPatch.Create(baseRom, rom);
+            File.WriteAllBytes(path, patch);
+            con.WriteLine($"Wrote IPS patch {path} ({patch.Length} bytes)");
+            con.WriteLine("OK");
+            return;
+        }
+
+        string outPath = file ?? session.SuggestedRomFileName();
+        con.WriteLine("Read ROM to " + outPath);
+        byte[] dump = session.ReadRom(RenderProgress(), size);
+        con.WriteLine("ROM size : " + dump.Length / 1024 + "K" + (size != null ? " (from header)" : ""));
+        if (applyPatchFile != null)
+        {
+            dump = IpsPatch.Apply(dump, File.ReadAllBytes(applyPatchFile));
+            con.WriteLine("Applied IPS patch " + applyPatchFile);
+        }
+        File.WriteAllBytes(outPath, dump);
+        PrintMD5(dump);
         con.WriteLine("OK");
     }
 
-    void WriteRom(FlashKitSession session, string file, bool fullErase, bool noFlashCheck)
+    void WriteRom(FlashKitSession session, string file, bool fullErase, bool noFlashCheck, string? patchFile)
     {
         byte[] image = File.ReadAllBytes(file);
+        if (patchFile != null)
+        {
+            image = IpsPatch.Apply(image, File.ReadAllBytes(patchFile));
+            con.WriteLine("Applied IPS patch " + patchFile);
+        }
         session.WriteRom(image, fullErase, skipFlashCheck: noFlashCheck, progress: RenderProgress(phase => phase switch
         {
             OperationPhase.Erase => fullErase ? "Flash erase (full chip)..." : "Flash erase...",

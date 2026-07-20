@@ -142,6 +142,77 @@ public class CliTests : IDisposable
     }
 
     [Fact]
+    public void write_rom_patch_flashes_the_patched_image()
+    {
+        var fake = new FakeFlashKitDevice(new byte[0x400000]) { FlashWritable = true };
+        var baseImg = new byte[0x20000];
+        for (int i = 0; i < baseImg.Length; i++) baseImg[i] = (byte)(i * 7 + 1);
+        var patched = (byte[])baseImg.Clone();
+        patched[0x100] ^= 0xFF;
+        patched[0x1FFFF] ^= 0xAA;
+        string imgFile = TempFile("base.bin");
+        string patchFile = TempFile("hack.ips");
+        File.WriteAllBytes(imgFile, baseImg);
+        File.WriteAllBytes(patchFile, IpsPatch.Create(baseImg, patched));
+
+        int exit = App(fake).Run(new[] { "write-rom", imgFile, "--patch", patchFile });
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Applied IPS patch", stdout.ToString());
+        Assert.Equal(patched, fake.Rom.Take(patched.Length).ToArray());
+    }
+
+    [Fact]
+    public void read_rom_apply_patch_saves_the_patched_dump()
+    {
+        var rom = TestRoms.MakeRom(0x80000);
+        var fake = new FakeFlashKitDevice(rom);
+        var patched = (byte[])rom.Clone();
+        patched[5] ^= 0xFF;
+        string outFile = TempFile("dump.bin");
+        string patchFile = TempFile("fix.ips");
+        File.WriteAllBytes(patchFile, IpsPatch.Create(rom, patched));
+
+        int exit = App(fake).Run(new[] { "read-rom", outFile, "--apply-patch", patchFile });
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Applied IPS patch", stdout.ToString());
+        Assert.Equal(patched, File.ReadAllBytes(outFile));
+    }
+
+    [Fact]
+    public void read_rom_create_patch_writes_a_diff_against_the_base()
+    {
+        var cartRom = TestRoms.MakeRom(0x80000);   // what the cart holds
+        var fake = new FakeFlashKitDevice(cartRom);
+        var baseRom = (byte[])cartRom.Clone();
+        baseRom[0x200] ^= 0xFF;                     // base differs from the cart
+        string baseFile = TempFile("base.bin");
+        string outIps = TempFile("out.ips");
+        File.WriteAllBytes(baseFile, baseRom);
+
+        int exit = App(fake).Run(new[] { "read-rom", outIps, "--create-patch", baseFile });
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Wrote IPS patch", stdout.ToString());
+        // The patch turns the base back into the cart dump.
+        Assert.Equal(cartRom, IpsPatch.Apply(baseRom, File.ReadAllBytes(outIps)));
+    }
+
+    [Theory]
+    [InlineData(new[] { "write-rom", "f", "--apply-patch", "p" }, "only apply to read-rom")]
+    [InlineData(new[] { "read-rom", "f", "--patch", "p" }, "only applies to write-rom")]
+    [InlineData(new[] { "read-rom", "f", "--apply-patch", "a", "--create-patch", "b" }, "mutually exclusive")]
+    [InlineData(new[] { "read-rom", "--apply-patch" }, "--apply-patch requires a value")]
+    public void patch_flag_misuse_is_rejected(string[] args, string expected)
+    {
+        int exit = AppWithoutDevice().Run(args);
+
+        Assert.Equal(2, exit);
+        Assert.Contains(expected, stderr.ToString());
+    }
+
+    [Fact]
     public void write_rom_pads_odd_sized_images_to_64K()
     {
         var fake = new FakeFlashKitDevice(new byte[0x400000]) { FlashWritable = true };
