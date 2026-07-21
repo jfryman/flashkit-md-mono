@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.9.3 (July 21, 2026)
 
 BUG FIXES:
 
