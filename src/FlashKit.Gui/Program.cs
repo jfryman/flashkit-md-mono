@@ -2,7 +2,7 @@ using Avalonia;
 
 namespace FlashKit.Gui;
 
-class Program
+sealed class Program
 {
     // Avalonia requires the app to start on the main thread; the framework
     // configuration must stay in BuildAvaloniaApp for the visual designer.

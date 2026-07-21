@@ -17,6 +17,15 @@ public sealed class VerifyException : Exception
     }
 }
 
+/// <summary>The cart reports no save RAM, so there is nothing to read or
+/// write at the save window.</summary>
+public sealed class SaveRamNotFoundException : Exception
+{
+    public SaveRamNotFoundException() : base("RAM is not detected")
+    {
+    }
+}
+
 /// <summary>No CFI-capable flash chip answered on the cart bus — the cart
 /// is not flashable (e.g. a mask ROM game cart) or is not seated.</summary>
 public sealed class FlashChipNotFoundException : Exception
@@ -165,16 +174,16 @@ public sealed class FlashKitSession : IDisposable
         if (size is int s && (s <= 0 || s % 2 != 0 || s > FlashChipBytes))
             throw new ArgumentException("invalid ROM size override: " + s);
         Device.setDelay(1);
-        int rom_size = size ?? Cart.getRomSize();
-        var rom = new byte[rom_size];
-        progress?.Invoke(new(OperationPhase.Read, 0, rom_size));
+        int romSize = size ?? Cart.getRomSize();
+        var rom = new byte[romSize];
+        progress?.Invoke(new(OperationPhase.Read, 0, romSize));
         Device.writeWord(0xA13000, 0x0000);
         Device.setAddr(0);
-        for (int i = 0; i < rom_size; i += 32768)
+        for (int i = 0; i < romSize; i += 32768)
         {
-            int block = Math.Min(32768, rom_size - i);
+            int block = Math.Min(32768, romSize - i);
             Device.read(rom, i, block);
-            progress?.Invoke(new(OperationPhase.Read, i + block, rom_size));
+            progress?.Invoke(new(OperationPhase.Read, i + block, romSize));
         }
         return rom;
     }
@@ -206,42 +215,42 @@ public sealed class FlashKitSession : IDisposable
     {
         Device.setDelay(0);
         if (!skipFlashCheck) CheckFlash();
-        int rom_size = image.Length;
-        if (rom_size % 65536 != 0) rom_size = rom_size / 65536 * 65536 + 65536;
-        if (rom_size > FlashChipBytes) rom_size = FlashChipBytes;
-        var rom = new byte[rom_size];
-        Array.Copy(image, rom, Math.Min(image.Length, rom_size));
+        int romSize = image.Length;
+        if (romSize % 65536 != 0) romSize = romSize / 65536 * 65536 + 65536;
+        if (romSize > FlashChipBytes) romSize = FlashChipBytes;
+        var rom = new byte[romSize];
+        Array.Copy(image, rom, Math.Min(image.Length, romSize));
 
         try
         {
-            int erase_len = fullErase ? FlashChipBytes : rom_size;
-            progress?.Invoke(new(OperationPhase.Erase, 0, erase_len));
+            int eraseLen = fullErase ? FlashChipBytes : romSize;
+            progress?.Invoke(new(OperationPhase.Erase, 0, eraseLen));
             Device.flashResetByPass();
-            for (int i = 0; i < erase_len; i += 65536)
+            for (int i = 0; i < eraseLen; i += 65536)
             {
                 Device.flashErase(i);
-                progress?.Invoke(new(OperationPhase.Erase, Math.Min(i + 65536, erase_len), erase_len));
+                progress?.Invoke(new(OperationPhase.Erase, Math.Min(i + 65536, eraseLen), eraseLen));
             }
 
-            progress?.Invoke(new(OperationPhase.Write, 0, rom_size));
+            progress?.Invoke(new(OperationPhase.Write, 0, romSize));
             Device.flashUnlockBypass();
             Device.setAddr(0);
-            for (int i = 0; i < rom_size; i += 4096)
+            for (int i = 0; i < romSize; i += 4096)
             {
                 Device.flashWrite(rom, i, 4096);
-                progress?.Invoke(new(OperationPhase.Write, i + 4096, rom_size));
+                progress?.Invoke(new(OperationPhase.Write, i + 4096, romSize));
             }
             Device.flashResetByPass();
 
-            progress?.Invoke(new(OperationPhase.Verify, 0, rom_size));
-            var rom2 = new byte[rom_size];
+            progress?.Invoke(new(OperationPhase.Verify, 0, romSize));
+            var rom2 = new byte[romSize];
             Device.setAddr(0);
-            for (int i = 0; i < rom_size; i += 4096)
+            for (int i = 0; i < romSize; i += 4096)
             {
                 Device.read(rom2, i, 4096);
-                progress?.Invoke(new(OperationPhase.Verify, i + 4096, rom_size));
+                progress?.Invoke(new(OperationPhase.Verify, i + 4096, romSize));
             }
-            for (int i = 0; i < rom_size; i++)
+            for (int i = 0; i < romSize; i++)
             {
                 if (rom[i] != rom2[i]) throw new VerifyException(i);
             }
@@ -258,11 +267,11 @@ public sealed class FlashKitSession : IDisposable
     public byte[] ReadRam()
     {
         Device.setDelay(1);
-        int ram_size = Cart.getRamSize();
-        if (ram_size == 0) throw new Exception("RAM is not detected");
+        int ramSize = Cart.getRamSize();
+        if (ramSize == 0) throw new SaveRamNotFoundException();
         Device.writeWord(0xA13000, 0xffff);
         Device.setAddr(SaveWindow);
-        var ram = new byte[ram_size * 2];
+        var ram = new byte[ramSize * 2];
         Device.read(ram, 0, ram.Length);
         return ram;
     }
@@ -272,31 +281,31 @@ public sealed class FlashKitSession : IDisposable
     public int WriteRam(byte[] ram, Action<OperationProgress>? progress = null)
     {
         Device.setDelay(1);
-        int ram_size = Cart.getRamSize();
-        if (ram_size == 0) throw new Exception("RAM is not detected");
+        int ramSize = Cart.getRamSize();
+        if (ramSize == 0) throw new SaveRamNotFoundException();
 
-        ram_size *= 2;
-        int copy_len = ram.Length;
-        if (ram_size < copy_len) copy_len = ram_size;
-        if (copy_len % 2 != 0) copy_len--;
-        progress?.Invoke(new(OperationPhase.Write, 0, copy_len));
+        ramSize *= 2;
+        int copyLen = ram.Length;
+        if (ramSize < copyLen) copyLen = ramSize;
+        if (copyLen % 2 != 0) copyLen--;
+        progress?.Invoke(new(OperationPhase.Write, 0, copyLen));
         Device.writeWord(0xA13000, 0xffff);
         Device.setAddr(SaveWindow);
-        Device.write(ram, 0, copy_len);
-        progress?.Invoke(new(OperationPhase.Write, copy_len, copy_len));
+        Device.write(ram, 0, copyLen);
+        progress?.Invoke(new(OperationPhase.Write, copyLen, copyLen));
 
-        progress?.Invoke(new(OperationPhase.Verify, 0, copy_len));
-        var ram2 = new byte[copy_len];
+        progress?.Invoke(new(OperationPhase.Verify, 0, copyLen));
+        var ram2 = new byte[copyLen];
         Device.setAddr(SaveWindow);
-        Device.read(ram2, 0, copy_len);
-        for (int i = 0; i < copy_len; i++)
+        Device.read(ram2, 0, copyLen);
+        for (int i = 0; i < copyLen; i++)
         {
             if (i % 2 == 0) continue; // save RAM is 8-bit, on odd bytes
             if (ram[i] != ram2[i]) throw new VerifyException(i);
         }
-        progress?.Invoke(new(OperationPhase.Verify, copy_len, copy_len));
+        progress?.Invoke(new(OperationPhase.Verify, copyLen, copyLen));
 
-        return copy_len / 2;
+        return copyLen / 2;
     }
 
     /// <summary>

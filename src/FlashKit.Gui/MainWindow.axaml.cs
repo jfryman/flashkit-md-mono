@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -18,6 +20,8 @@ namespace FlashKit.Gui;
 /// StorageProvider pickers and a warning dialog, and drives the 2 s poll
 /// timer. The TUI front-end mirrors this same adapter pattern.
 /// </summary>
+[SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable",
+    Justification = "Avalonia windows are not IDisposable; the model is disposed by the Closed handler.")]
 public partial class MainWindow : Window
 {
     static readonly FilePickerFileType RomFiles = new("ROM image") { Patterns = new[] { "*.bin", "*.32x" } };
@@ -29,7 +33,7 @@ public partial class MainWindow : Window
     readonly ProgrammerModel model;
 
     internal ProgrammerModel Model => model;
-    internal System.Collections.ObjectModel.ObservableCollection<TransactionEntry> Log => model.Log;
+    internal ObservableCollection<TransactionEntry> Log => model.Log;
 
     // Test seams: headless tests inject a fake-device connector and replace
     // the pickers (the headless platform's StorageProvider never returns a

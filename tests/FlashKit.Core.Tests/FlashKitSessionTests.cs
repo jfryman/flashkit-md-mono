@@ -230,7 +230,7 @@ public class FlashKitSessionTests
     {
         using var session = Connect(new FakeFlashKitDevice(TestRoms.MakeRom(0x80000)));
 
-        var x = Assert.Throws<Exception>(() => session.ReadRam());
+        var x = Assert.Throws<SaveRamNotFoundException>(() => session.ReadRam());
 
         Assert.Equal("RAM is not detected", x.Message);
     }

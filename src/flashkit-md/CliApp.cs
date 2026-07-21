@@ -205,15 +205,15 @@ public sealed class CliApp
         PrintRamSize(info.RamBytes);
     }
 
-    void PrintRamSize(int ram_size)
+    void PrintRamSize(int ramBytes)
     {
-        if (ram_size < 1024)
+        if (ramBytes < 1024)
         {
-            con.WriteLine("RAM size : " + ram_size + "B");
+            con.WriteLine("RAM size : " + ramBytes + "B");
         }
         else
         {
-            con.WriteLine("RAM size : " + ram_size / 1024 + "K");
+            con.WriteLine("RAM size : " + ramBytes / 1024 + "K");
         }
     }
 

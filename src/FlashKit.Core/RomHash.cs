@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Hashing;
 using System.Security.Cryptography;
 
@@ -7,6 +8,10 @@ namespace FlashKit.Core;
 /// ROM identity hashes as compact uppercase hex — the form No-Intro and
 /// romhacking.net quote, so a dump can be checked against a database.
 /// </summary>
+[SuppressMessage("Security", "CA5350:Do Not Use Weak Cryptographic Algorithms",
+    Justification = "MD5/SHA-1 identify ROM dumps against No-Intro databases; they are not security primitives here.")]
+[SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms",
+    Justification = "MD5/SHA-1 identify ROM dumps against No-Intro databases; they are not security primitives here.")]
 public static class RomHash
 {
     public static string Crc32(byte[] data)

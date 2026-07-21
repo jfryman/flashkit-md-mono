@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace FlashKit.Presentation;
@@ -8,7 +9,7 @@ namespace FlashKit.Presentation;
 /// progress reports are marshalled by Progress&lt;T&gt;).</summary>
 public sealed class TransactionEntry : INotifyPropertyChanged
 {
-    public string Time { get; } = DateTime.Now.ToString("HH:mm:ss");
+    public string Time { get; } = DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
     public string Title { get; }
 
     string detail = "";

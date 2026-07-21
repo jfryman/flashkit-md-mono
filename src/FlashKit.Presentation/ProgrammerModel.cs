@@ -395,6 +395,9 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
     /// <summary>Progress sink that drives the entry's progress bar and sets
     /// its status when the operation enters a new phase. Constructed on the
     /// UI thread so reports from the worker marshal back automatically.</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance",
+        "CA1859:Use concrete types when possible for improved performance",
+        Justification = "Progress<T> exposes Report only through IProgress<T>.")]
     static IProgress<OperationProgress> TrackProgress(TransactionEntry entry,
         Func<OperationPhase, string?>? phaseLabel = null)
     {
@@ -442,7 +445,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
         return path;
     }
 
-    async Task DumpRomTo(FlashKitSession session, TransactionEntry entry, string path, string? patchPath = null)
+    static async Task DumpRomTo(FlashKitSession session, TransactionEntry entry, string path, string? patchPath = null)
     {
         entry.Detail = path;
         entry.Status = "Reading ROM...";
@@ -463,7 +466,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
         await WriteRomFrom(session, entry, path, ApplyPatchEnabled ? patchFile : null);
     });
 
-    async Task WriteRomFrom(FlashKitSession session, TransactionEntry entry, string path, string? patchPath = null)
+    static async Task WriteRomFrom(FlashKitSession session, TransactionEntry entry, string path, string? patchPath = null)
     {
         entry.Detail = path;
         var rom = await File.ReadAllBytesAsync(path);
@@ -520,7 +523,7 @@ public sealed class ProgrammerModel : INotifyPropertyChanged, IDisposable
         await DumpRamTo(session, entry, FixAppendedExtension(path, suggested));
     });
 
-    async Task DumpRamTo(FlashKitSession session, TransactionEntry entry, string path)
+    static async Task DumpRamTo(FlashKitSession session, TransactionEntry entry, string path)
     {
         entry.Detail = path;
         entry.Status = "Reading RAM...";
