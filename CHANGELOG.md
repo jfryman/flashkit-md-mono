@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+IMPROVEMENTS:
+
+ * docs: the README's CLI reference is again the verbatim `--help` output —
+   it had drifted from the 1.8.1/1.9.2 help-text reformat (single-column
+   option descriptions, fuller --full-erase/--trust-header/bake-save text).
+
 ## 1.9.3 (July 21, 2026)
 
 BUG FIXES:

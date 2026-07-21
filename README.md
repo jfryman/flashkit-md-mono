@@ -114,24 +114,34 @@ progress bar and result (size and MD5, or the error).
 ## Using the CLI
 
 ```
-flashkit-md [--port <serial-port>] <command> [file]
-
+usage: flashkit-md [--port <serial-port>] <command> [file]
+       flashkit-md --version
+commands:
   info               print cart ROM name/size and save-RAM size
   read-rom [file]    dump cart ROM (default file: <ROM name>.bin)
-      --trust-header dump the size the ROM header declares, not the
-                     mirror-probed size (useful on flash carts)
-      --apply-patch <ips>    patch the dump before saving
-      --create-patch <base>  write an IPS diff vs <base> instead of the ROM
+      --trust-header dump the size the ROM header declares instead
+                     of the mirror-probed size (useful on flash
+                     carts, where probing can misjudge the extent)
+      --apply-patch <ips>
+                     apply an IPS patch to the dump before saving
+      --create-patch <base>
+                     diff the dump against <base> and write an IPS
+                     patch instead of the ROM (default: <name>.ips)
   write-rom <file>   erase flash cart and write ROM image
-      --full-erase   wipe the whole 4 MB chip first (see notes below)
+      --full-erase   erase the entire 4 MB chip first, so no stale
+                     data above the image shows up as ghost saves
+                     (only for carts with a full-size 4 MB chip)
       --patch <ips>  apply an IPS patch to the image before flashing
-      --no-flash-check   skip the CFI flash-presence check run before
-                     erasing (also applies to bake-save)
+      --no-flash-check
+                     skip the CFI flash-presence check that write-rom
+                     and bake-save run before erasing
   read-ram [file]    dump save RAM (default file: <ROM name>.srm)
   write-ram <file>   write save RAM from file
-  bake-save <file>   program a save snapshot into flash (see notes below)
-
-flashkit-md --version   print the build's version
+  bake-save <file>   program a save image into flash at the save
+                     window (0x200000) of an SRAM-less flash cart:
+                     the game sees the saves read-only, so they
+                     survive every power cycle but cannot be
+                     overwritten in-game (needs a 4 MB chip)
 ```
 
 The programmer is auto-detected by probing likely USB serial ports
