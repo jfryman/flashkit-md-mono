@@ -37,7 +37,7 @@ jobs:
           dotnet-version: 10.0.x
       - name: Publish ${{ matrix.rid }}
         run: RIDS=${{ matrix.rid }} ./eng/publish.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: flashkit-md-${{ matrix.rid }}
           path: artifacts/${{ matrix.rid }}/
@@ -78,7 +78,7 @@ jobs:
           flatpak-builder --user --force-clean --default-branch=stable --repo=flatpak-repo flatpak-build \
             packaging/flatpak/io.github.jfryman.FlashKitMD.yml
           flatpak build-bundle flatpak-repo "flashkit-md-${{ matrix.rid }}.flatpak" io.github.jfryman.FlashKitMD stable
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: flashkit-md-flatpak-${{ matrix.rid }}
           path: flashkit-md-${{ matrix.rid }}.flatpak
